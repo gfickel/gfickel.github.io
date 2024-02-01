@@ -1,0 +1,98 @@
+<!-- Template from https://karpathy.ai/ -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Guilherme Fickel</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+  </head>
+  <body>
+
+    <!-- idea: have a javascript animated loss function converging in the header? :p -->
+    <div id="dhead" class="container">
+      <div class="row">
+        <div id="dpic">
+          <img src="assets/me_small.jpg" class="ppic" />
+        </div>
+        <div id="ddesc">
+          <h1>Guilherme Fickel</h1>
+          <h2>ML Engineer that likes to thinker with things :)</h2>
+          <div id="dico">
+            <a href="https://twitter.com/gfickel"><img src="assets/ctwitter.svg" class="iico" /></a>
+            <a href="https://github.com/gfickel"><img src="assets/cgithub.svg" class="iico"/></a>
+            <a href="https://gfickel.github.io"><img src="assets/crss.svg" class="iico" /></a>
+            <!-- <a href="https://medium.com/@guilhermefickel"><img src="assets/crss.svg" class="iico" /></a> -->
+            <img src="assets/cemail.svg" style="cursor: pointer;" class="iico" id="iemail" title="click to reveal" />
+          </div>
+          <div id="demail"></div> <!-- will reveal email -->
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <div id="history" class="container">
+
+      <div class="entry row">
+        <div class="timespan">
+          2019 - 2023 -
+        </div>
+        <div class="ico">
+          <div class="entry-dot"></div>
+          <img src="assets/unico.png" />
+        </div>
+        <div class="desc">
+          Staff ML Dev at <a href="https://unico.io/">Unico IDTech</a>. Developed a new Face Biometric System training on a huge proprietary dataset, with a focus on scalability to hundreds of millions of people. Deploy with high availability, using only CPUs on backend (no GPUs or TPUs).
+        </div>
+      </div>
+
+      <div class="entry row">
+        <div class="timespan">
+          2015 - 2020
+        </div>
+        <div class="ico">
+          <div class="entry-dot"></div>
+          <img src="assets/meerkat.png" />
+        </div>
+        <div class="desc">
+          <div class="htxt">
+            Co-founder and tech lead on Meerkat.
+          </div>
+        </div>
+      </div>
+
+      <div class="entry row">
+        <div class="timespan">
+          2010 - 2015
+        </div>
+        <div class="ico">
+          <div class="entry-dot"></div>
+          <img src="assets/ufrgs.jpg" />
+        </div>
+        <div class="desc">
+          PhD on Free Viewpoint Synthesis.
+        </div>
+      </div>
+    </div>
+
+
+    <br><br><br><br><br><br><br><br><br><br><br>
+
+    <!-- attempt hiding from spambots :p -->
+    <script type="text/javascript">
+      const rot13 = (message) => {
+        const alpha = 'abcdefghijklmnopqrstuvwxyzabcdefghijklmABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLM';
+        return message.replace(/[a-z]/gi, letter => alpha[alpha.indexOf(letter) + 13]);
+      }
+      var e_is_shown = false;
+      document.getElementById('iemail').addEventListener("click", function(){
+        let demail = document.getElementById('demail');
+        let msg = "" + "@" + ""
+        demail.innerHTML = rot13(msg);
+        demail.style.opacity = e_is_shown ? 0 : 1;
+        e_is_shown = !e_is_shown;
+      })
+    </script>
+  </body>
+</html>
