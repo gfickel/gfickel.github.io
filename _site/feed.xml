@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.5">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-02-23T16:34:20-03:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">GFickel Blog</title><subtitle>A Blog mostly geared toward Machine Learning and high performance code.</subtitle><entry><title type="html">Welcome to Jekyll!</title><link href="http://localhost:4000/jekyll/update/2024/02/22/welcome-to-jekyll.html" rel="alternate" type="text/html" title="Welcome to Jekyll!" /><published>2024-02-22T19:55:11-03:00</published><updated>2024-02-22T19:55:11-03:00</updated><id>http://localhost:4000/jekyll/update/2024/02/22/welcome-to-jekyll</id><content type="html" xml:base="http://localhost:4000/jekyll/update/2024/02/22/welcome-to-jekyll.html"><![CDATA[<p>You’ll find this post in your <code class="language-plaintext highlighter-rouge">_posts</code> directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run <code class="language-plaintext highlighter-rouge">jekyll serve</code>, which launches a web server and auto-regenerates your site when a file is updated.</p>
+
+<p>Jekyll requires blog post files to be named according to the following format:</p>
+
+<p><code class="language-plaintext highlighter-rouge">YEAR-MONTH-DAY-title.MARKUP</code></p>
+
+<p>Where <code class="language-plaintext highlighter-rouge">YEAR</code> is a four-digit number, <code class="language-plaintext highlighter-rouge">MONTH</code> and <code class="language-plaintext highlighter-rouge">DAY</code> are both two-digit numbers, and <code class="language-plaintext highlighter-rouge">MARKUP</code> is the file extension representing the format used in the file. After that, include the necessary front matter. Take a look at the source for this post to get an idea about how it works.</p>
+
+<p>Jekyll also offers powerful support for code snippets:</p>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">def</span> <span class="nf">print_hi</span><span class="p">(</span><span class="nb">name</span><span class="p">)</span>
+  <span class="nb">puts</span> <span class="s2">"Hi, </span><span class="si">#{</span><span class="nb">name</span><span class="si">}</span><span class="s2">"</span>
+<span class="k">end</span>
+<span class="n">print_hi</span><span class="p">(</span><span class="s1">'Tom'</span><span class="p">)</span>
+<span class="c1">#=&gt; prints 'Hi, Tom' to STDOUT.</span></code></pre></figure>
+
+<p>Check out the <a href="https://jekyllrb.com/docs/home">Jekyll docs</a> for more info on how to get the most out of Jekyll. File all bugs/feature requests at <a href="https://github.com/jekyll/jekyll">Jekyll’s GitHub repo</a>. If you have questions, you can ask them on <a href="https://talk.jekyllrb.com/">Jekyll Talk</a>.</p>]]></content><author><name></name></author><category term="jekyll" /><category term="update" /><summary type="html"><![CDATA[You’ll find this post in your _posts directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run jekyll serve, which launches a web server and auto-regenerates your site when a file is updated.]]></summary></entry><entry><title type="html">100x speedup on Python with just a touch of C++</title><link href="http://localhost:4000/jekyll/update/2022/05/13/100x-speedup-on-python-with-just-a-touch-of-c.html" rel="alternate" type="text/html" title="100x speedup on Python with just a touch of C++" /><published>2022-05-13T12:00:00-03:00</published><updated>2022-05-13T12:00:00-03:00</updated><id>http://localhost:4000/jekyll/update/2022/05/13/100x-speedup-on-python-with-just-a-touch-of-c</id><content type="html" xml:base="http://localhost:4000/jekyll/update/2022/05/13/100x-speedup-on-python-with-just-a-touch-of-c.html"><![CDATA[<p>Python is a great language. I still remember my first contact with Python2 some 8 years ago, and I was amazed by how clean and expressive it was. And now, with Python3, a lot has changed. It is now the de facto language for machine learning (so long, Matlab!), and lots of amazing stuff have been built with it.</p>
+
+<p>All is good and dandy, however from time to time I’ve encountered a brick wall when working on Python: how slow it is. Don’t get me wrong, if you are using libs to do your heavy processing, such as NumPy, you are good to go. But it’s important to notice that the core of NumPy is not Python, and for a reason. It’s just not the language for that.</p>
+
+<p>For most cases, you can use such libs and pass those crunch-intensive stuff to them, but sometimes you want something not so conventional and that does not conform with such limitations. And then you end up writing two nested fors in Python, processing a Full HD image, and you want to cry…</p>
+
+<p>Fortunately, we can write those code hot spots in C++, and it is surprisingly simple to do it and seamlessly integrate with Python. However, this opens another can of worms that is C++, and its dependencies and compatibilities. For anyone that had to target Linux, Windows in both 32 and 64 bits should know what I’m talking about. So for me it is of the utmost importance that it can be used seamlessly in any platform without any dependencies other than a C++ compiler.</p>
+
+<p>So upfront I’m already discarding <a href="https://www.boost.org/doc/libs/1_66_0/libs/python/doc/html/index.html">Boost.Python</a> and <a href="https://github.com/pybind/pybind11">PyBind11</a>. I’ve used both, and usually prefer PyBind11 since it is much easier to manage on different platforms. But one dependency is one too many. And as I will show it now, you don’t need them for most cases.</p>
+
+<p>Let’s start with a very simple and naive example: normalize the contrast of a black and white image.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">naive_contrast_image</span><span class="p">(</span><span class="n">image</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">uint8</span><span class="p">)</span>
+    <span class="n">min_color</span><span class="p">,</span> <span class="n">max_color</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">min</span><span class="p">(</span><span class="n">image</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nb">max</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+    <span class="n">delta_color</span> <span class="o">=</span> <span class="n">max_color</span><span class="o">-</span><span class="n">min_color</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">pixel</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="n">col</span><span class="p">]</span>
+            <span class="n">result</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="mi">255</span><span class="o">*</span><span class="p">(</span><span class="n">pixel</span><span class="o">-</span><span class="n">min_color</span><span class="p">)</span><span class="o">/</span><span class="n">delta_color</span>
+
+    <span class="k">return</span> <span class="n">result</span>
+</code></pre></div></div>
+
+<p>So this code generates the following result:</p>
+
+<p><img src="/assets/turing.png" alt="Contrast example image" /></p>
+
+<p>This is a very simple and naive example that could (and should) be done using NumPy. But let us do this in C++.</p>
+
+<p>The first difference in C++ is that you should specify the variable types. So let us define image as an np.uint8 array, and the resulting image with the same type. On C++ this can be represented as unsigned char. Let’s take a look at our implementation. On contrast_image.h:</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;algorithm&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;vector&gt;</span><span class="cp">
+</span>
+<span class="k">extern</span> <span class="s">"C"</span> <span class="p">{</span>
+
+<span class="kt">void</span> <span class="n">cpp_contrast_image</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">image</span><span class="p">,</span> <span class="kt">int</span> <span class="n">height</span><span class="p">,</span> <span class="kt">int</span> <span class="n">width</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">outResult</span><span class="p">);</span>
+
+<span class="p">}</span> <span class="c1">// extern "C"</span>
+</code></pre></div></div>
+
+<p>And contrast_image.cpp:</p>
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="cp">#include</span> <span class="cpf">"contrast_image.h"</span><span class="cp">
+</span>
+<span class="kt">void</span> <span class="nf">cpp_contrast_image</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">image</span><span class="p">,</span> <span class="kt">int</span> <span class="n">height</span><span class="p">,</span> <span class="kt">int</span> <span class="n">width</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">outResult</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">vec</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">unsigned</span> <span class="kt">char</span><span class="o">&gt;</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">image</span><span class="o">+</span><span class="n">width</span><span class="o">*</span><span class="n">height</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">minmax</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">minmax_element</span><span class="p">(</span><span class="n">vec</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">vec</span><span class="p">.</span><span class="n">end</span><span class="p">());</span>
+    <span class="kt">float</span> <span class="n">min</span> <span class="o">=</span> <span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="o">*</span><span class="n">minmax</span><span class="p">.</span><span class="n">first</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">max</span> <span class="o">=</span> <span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="o">*</span><span class="n">minmax</span><span class="p">.</span><span class="n">second</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">delta_color</span> <span class="o">=</span> <span class="n">max</span><span class="o">-</span><span class="n">min</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">row</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span> <span class="n">row</span><span class="o">&lt;</span><span class="n">height</span><span class="p">;</span> <span class="n">row</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">col</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span> <span class="n">col</span><span class="o">&lt;</span><span class="n">width</span><span class="p">;</span> <span class="n">col</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+            <span class="kt">int</span> <span class="n">idx</span> <span class="o">=</span> <span class="n">row</span><span class="o">*</span><span class="n">width</span> <span class="o">+</span> <span class="n">col</span><span class="p">;</span>
+            <span class="kt">float</span> <span class="n">pixel</span> <span class="o">=</span> <span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="n">image</span><span class="p">[</span><span class="n">idx</span><span class="p">];</span>
+            <span class="n">outResult</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span><span class="p">)(</span><span class="mi">255</span><span class="o">*</span><span class="p">(</span><span class="n">pixel</span><span class="o">-</span><span class="n">min</span><span class="p">)</span><span class="o">/</span><span class="n">delta_color</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>There are some small but very important details here, so let’s start with the important ones.</p>
+
+<ol>
+  <li>Avoid dynamic memory allocation on C++. Python Garbage Collector will not see them so you will have to free them by yourself. Prefer to allocate the memory with NumPy. This will be shown further along.</li>
+  <li>Multiple dimensional arrays are actually just a single array with some syntactic sugar to access it. You’ll notice the direct idx calculation on the example. It is a good practice to create a function to give you the index given the desired position to avoid silly bugs.</li>
+  <li>Access and/or modify an invalid array position will generate the dreadful Segmentation Fault. So always be diligent with the range checks.</li>
+  <li>The function must have a C compatible interface, as we can see with the extern “C” on contrast_image.h. Usually this is not a big deal since we can use all the desired C++ stuff within the implementation on contrast_image.cpp, however we will have to implement different versions for different input types since templates are not available on the function definition :(.</li>
+</ol>
+
+<p>Finally, returning complex objects within a C interface is not the easiest and cleanest thing to do. So for the most part I just reserve my final arguments to return my value. And also, use const on every array that you should not change and let the compiler help you find bugs.</p>
+
+<p>Ok, we have a C++ code that does exactly what we want and can compile it to a lib with:</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>g++ <span class="nt">-Wall</span> <span class="nt">-O2</span> <span class="nt">-c</span> <span class="nt">-fPIC</span> contrast_image.cpp
+
+g++ contrast_image.o <span class="nt">-shared</span> <span class="nt">-o</span> libcontrast_image.so
+</code></pre></div></div>
+
+<p>Until now I did not say anything out of the ordinary, but we are surprisingly close to finishing it. Python has a useful and easy way to access a C compiled libs using ctypes. So this is how we will use our cpp_contrast_image on Python:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="nn">numpy.ctypeslib</span> <span class="kn">import</span> <span class="n">ndpointer</span>
+
+<span class="n">lib</span> <span class="o">=</span> <span class="n">ctypes</span><span class="p">.</span><span class="n">CDLL</span><span class="p">(</span><span class="s">'./libcontrast_image.so'</span><span class="p">)</span>
+
+<span class="n">c_contrast_image</span> <span class="o">=</span> <span class="n">lib</span><span class="p">.</span><span class="n">cpp_contrast_image</span>
+<span class="n">c_contrast_image</span><span class="p">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">ndpointer</span><span class="p">(</span><span class="n">ctypes</span><span class="p">.</span><span class="n">c_ubyte</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="s">'C_CONTIGUOUS'</span><span class="p">),</span>
+    <span class="n">ctypes</span><span class="p">.</span><span class="n">c_int</span><span class="p">,</span>
+    <span class="n">ctypes</span><span class="p">.</span><span class="n">c_int</span><span class="p">,</span>
+    <span class="n">ndpointer</span><span class="p">(</span><span class="n">ctypes</span><span class="p">.</span><span class="n">c_ubyte</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="s">'C_CONTIGUOUS'</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">contrast_image</span><span class="p">(</span><span class="n">image</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">uint8</span><span class="p">)</span>
+    <span class="n">c_contrast_image</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">image</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">image</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">result</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+</code></pre></div></div>
+
+<p>And that’s it! You can use the new contrast_image python function with exactly the same interface, but much faster! How fast, you may ask. Well, on my i7 8550-U it went from 1229.050ms to 1.645ms on this demo image. Quite a difference! That’s actually over 700x faster, way over the promised 100x. The reason is that in our use cases we often see a speedup of a little over 100 times, so I’m trying to not over-promise here.</p>
+
+<p>Just as with our C++ code, we have some important stuff to notice here. So let’s do it:</p>
+
+<ol>
+  <li>On C++ we treated our NumPy arrays as a single contiguous array. Usually that is the case, but not always! Fortunately we can explicit this constraint on Python itself, informing that our NumPy array is of type char and must be contiguous. If you call it with the wrong type an exception will be raised, saving you from a possible Segmentation Fault. You can check the available c_types <a href="https://docs.python.org/3/library/ctypes.html">here</a>.</li>
+  <li>Remember that we are avoiding to allocate memory on the C++ code? So we are doing it here, by explicitly allocating the result image with np.zeros.</li>
+  <li>We have to explicitly point to where our compiled C++ library is to be loaded from, using ctypes.CDLL.</li>
+</ol>
+
+<p>That’s it! Within a few lines of code you have lots of freedom to easily integrate C++ code into Python, and all of that without any dependency :)</p>
+
+<p>You may be thinking that this is a silly example. And you are right. But you can do lots of stuff with this knowledge. For example, we decreased the runtime of a rasterization algorithm from 2.5s to 1.8ms, quite a hefty difference! You can read all of that on a following post to be released. But I’ll warn you, it was really easy :)</p>
+
+<p>Finally, I must quote a great thinker: “With great powers comes great responsibility”. For an untrained person dabbling with pointers at C++ is a quick road to memory leaks and Segmentation Faults. Actually, even for trained ones. So it is a good practice to keep those codes as short as possible, usually not replacing a whole function but just the slow parts. And don’t forget to do lots of unit tests to catch some unusual edge cases. But if you are willing to deal with those drawbacks, a whole new world of crazy fast code awaits you!</p>
+
+<p>PS.: All of this code and the benchmark script can be seen on <a href="https://github.com/gfickel/python_cpp">https://github.com/gfickel/python_cpp</a>. It is meant to only illustrate the interface between C++ and Python, so everything surrounding it is not production ready. This is up to the reader ;)</p>
+
+<p>PS2.: Thanks to Michele Tanus, Gustavo Führ and Roger Granada for proofreading and greatly improving this post.</p>]]></content><author><name></name></author><category term="jekyll" /><category term="update" /><summary type="html"><![CDATA[Python is a great language. I still remember my first contact with Python2 some 8 years ago, and I was amazed by how clean and expressive it was. And now, with Python3, a lot has changed. It is now the de facto language for machine learning (so long, Matlab!), and lots of amazing stuff have been built with it.]]></summary></entry></feed>

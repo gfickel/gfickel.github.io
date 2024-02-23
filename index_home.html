@@ -1,0 +1,116 @@
+---
+permalink: /
+redirect_from:
+  - /index_home
+---
+
+<!-- Template from https://karpathy.ai/ -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Guilherme Fickel</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+  </head>
+  <body>
+
+    <!-- idea: have a javascript animated loss function converging in the header? :p -->
+    <div id="dhead" class="container">
+      <div class="row">
+        <div id="dpic">
+          <img src="assets/me_small.jpg" class="ppic" />
+        </div>
+        <div id="ddesc">
+          <h1>Guilherme Fickel</h1>
+          <h2>ML Engineer who enjoys tinkering with things :)</h2>
+          <div id="dico">
+            <a href="https://twitter.com/guilhermefickel"><img src="assets/ctwitter.svg" class="iico" /></a>
+            <a href="https://github.com/gfickel"><img src="assets/cgithub.svg" class="iico"/></a>
+            <a href="https://gfickel.github.io"><img src="assets/crss.svg" class="iico" /></a>
+            <!-- <a href="https://medium.com/@guilhermefickel"><img src="assets/crss.svg" class="iico" /></a> -->
+            <img src="assets/cemail.svg" style="cursor: pointer;" class="iico" id="iemail" title="click to reveal" />
+          </div>
+          <div id="demail"></div> <!-- will reveal email -->
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <div id="history" class="container">
+
+      <div class="entry row">
+        <div class="timespan">
+          2019 - 2023 -
+        </div>
+        <div class="ico">
+          <div class="entry-dot"></div>
+          <img src="assets/unico.png" />
+        </div>
+        <div class="desc">
+          As a Staff ML Dev at <a href="https://unico.io/">Unico IDTech</a>, I developed a new Face Biometric System. It was trained on a huge proprietary dataset, with a focus on scalability to hundreds of millions of people. The deployment  focused on high availability, utilizing only CPUs on the backend - no GPUs or TPUs were employed. Also worked on other projects, such as OCR applied to key information extraction of documents and face spoofing detection.
+        </div>
+      </div>
+
+      <div class="entry row">
+        <div class="timespan">
+          2015 - 2020
+        </div>
+        <div class="ico">
+          <div class="entry-dot"></div>
+          <img src="assets/meerkat.png" />
+        </div>
+        <div class="desc">
+          <div class="htxt">
+            Co-founder and tech lead on Meerkat. Developed several solutions, such as real-time Face Biometric System, Automatic License Plate Detector for multiple countries, key information extraction from documents. Many solutions were deployed across various platforms, including iOS, Android, Windows, Linux and Cloud.
+          </div>
+        </div>
+      </div>
+
+      <div class="entry row">
+        <div class="timespan">
+          2010 - 2015
+        </div>
+        <div class="ico">
+          <div class="entry-dot"></div>
+          <img src="assets/ufrgs.jpg" />
+        </div>
+        <div class="desc">
+          PhD on Computer Vision, on the topic of Free Viewpoint Synthesis. Implemented the project using C++, with CUDA and OpenGL for the highest performance possible.
+        </div>
+      </div>
+    </div>
+
+
+    <div style="background-color: #eee; padding-top: 1px; margin-top: 50px; padding-bottom: 30px;">
+      <div class="container">
+        <div class="ctitle">Blog Posts</div>
+        Sometimes I like to write about what is currently interesting me, what I'm learning, and random tips and toughts.
+        <ul class="nodot">
+          <li><a href="/jekyll/update/2022/05/13/100x-speedup-on-python-with-just-a-touch-of-c.html">100x Speedup on Python with just a touch of C++</a></li>
+        </ul>
+      </div>
+      </div>
+
+
+    <br><br><br><br><br><br><br>
+    <div class="footer">Website template inspired by <a href="https://karpathy.ai/">Karpathy</a></div>
+
+    <!-- attempt hiding from spambots :p -->
+    <script type="text/javascript">
+      const rot13 = (message) => {
+        const alpha = 'abcdefghijklmnopqrstuvwxyzabcdefghijklmABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLM';
+        return message.replace(/[a-z]/gi, letter => alpha[alpha.indexOf(letter) + 13]);
+      }
+      var e_is_shown = false;
+      document.getElementById('iemail').addEventListener("click", function(){
+        let demail = document.getElementById('demail');
+        let msg = "" + "@" + ""
+        demail.innerHTML = rot13(msg);
+        demail.style.opacity = e_is_shown ? 0 : 1;
+        e_is_shown = !e_is_shown;
+      })
+    </script>
+  </body>
+</html>
