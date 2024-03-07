@@ -19,7 +19,7 @@ CUDA programming may seem intimidating, at least it was for me. I first learned 
 
 It may be a couple of hoops, but the ability to develop CUDA code in Python makes our lives so much easier. You have easier integration with debugers, and the iteration time between changes in code and running it is nearly instant, compared to the long time it takes to compile C CUDA. You may noticed that mentioned both forward and backward passes, and unfortunately, if we use CUDA for our backward pass, we can't rely on autograd to get this for us. But fortunately, we have this amazing function from PyTorch, [gradcheck](https://pytorch.org/docs/stable/notes/gradcheck.html), that will validate for us if our backpropagation is indeed correct. 
 
-So in this first part, we will tackle numbers 1 and 2. And in the second part, we will dive into the CUDA programming. But we need some kind of end goal, and for us, it will be the implementation of the Sigmoid activation. You'll see that it has some interesting characteristics that will help us explore interesting (and important) aspects of creating a performant CUDA layer.
+We need some kind of end goal, and for us, it will be the implementation of the Sigmoid activation inspired by [David Oniani](https://www.youtube.com/watch?v=oxC3T_-_Amw). You'll see that it has some interesting characteristics that will help us explore interesting (and important) aspects of creating a performant CUDA layer.
 
 ## 1. Forward and Backward passes in PyTorch
 
