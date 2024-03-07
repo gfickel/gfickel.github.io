@@ -300,4 +300,6 @@ With those caveats aside, our gradcheck should be passing and we are officially 
 
 ## Conclusions
 
-Uou, that was a long post. However, I tried to skim only the not-critical details and explain in greater detail the development pipeline. That is the key point that you should be taking from here: how to make CUDA development less sucky. I believe that this is an interesting knowledge to have, and
+Uou, that was a long post. However, I tried to skim only the not-critical details and explain in greater detail the development pipeline. That is the key point that you should be taking from here: how to make CUDA development less sucky. And by using this PyTorch feature to compile CUDA code, we can even run CUDA kernels on Google Collabs!
+
+In the end, I do believe that this is an interesting knowledge to have, and in this day and age of huge LLMs, being able to tackle some performance bottlenecks can have a great impact.
