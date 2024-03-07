@@ -3,77 +3,324 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
-<title>Making your GPU go BRRR - Programing a PyTorch Layer in CUDA | GFickel Blog</title>
+<title>Making your GPU go BRRR: Creating a CUDA Layer in PyTorch | GFickel Blog</title>
 <meta name="generator" content="Jekyll v3.9.5" />
-<meta property="og:title" content="Making your GPU go BRRR - Programing a PyTorch Layer in CUDA" />
+<meta property="og:title" content="Making your GPU go BRRR: Creating a CUDA Layer in PyTorch" />
 <meta property="og:locale" content="en_US" />
-<meta name="description" content="I still remember the “dark ages” of research, when I was still doing my masters, that it was common to find really impactfull publications that provided no code. And yes, I’ve send my fair share of emails to authors… Fortunatelly, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deeplearning frameworks really helped everyone to create way smaller, cleaner code, that were also easier to share." />
-<meta property="og:description" content="I still remember the “dark ages” of research, when I was still doing my masters, that it was common to find really impactfull publications that provided no code. And yes, I’ve send my fair share of emails to authors… Fortunatelly, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deeplearning frameworks really helped everyone to create way smaller, cleaner code, that were also easier to share." />
+<meta name="description" content="I still remember the “dark ages” of research, when I was still doing my masters when it was common to find really impactful publications that provided no code. And yes, I’ve sent my fair share of emails to authors… Fortunately, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deep learning frameworks really helped everyone to create way smaller, cleaner code, that was also easier to share." />
+<meta property="og:description" content="I still remember the “dark ages” of research, when I was still doing my masters when it was common to find really impactful publications that provided no code. And yes, I’ve sent my fair share of emails to authors… Fortunately, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deep learning frameworks really helped everyone to create way smaller, cleaner code, that was also easier to share." />
 <link rel="canonical" href="http://localhost:4000/jekyll/update/2024/02/23/making-your-gpu-go-brrr-programing-a-network-layer-in-cuda.html" />
 <meta property="og:url" content="http://localhost:4000/jekyll/update/2024/02/23/making-your-gpu-go-brrr-programing-a-network-layer-in-cuda.html" />
 <meta property="og:site_name" content="GFickel Blog" />
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="2024-02-23T12:00:00-03:00" />
 <meta name="twitter:card" content="summary" />
-<meta property="twitter:title" content="Making your GPU go BRRR - Programing a PyTorch Layer in CUDA" />
+<meta property="twitter:title" content="Making your GPU go BRRR: Creating a CUDA Layer in PyTorch" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-02-23T12:00:00-03:00","datePublished":"2024-02-23T12:00:00-03:00","description":"I still remember the “dark ages” of research, when I was still doing my masters, that it was common to find really impactfull publications that provided no code. And yes, I’ve send my fair share of emails to authors… Fortunatelly, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deeplearning frameworks really helped everyone to create way smaller, cleaner code, that were also easier to share.","headline":"Making your GPU go BRRR - Programing a PyTorch Layer in CUDA","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/jekyll/update/2024/02/23/making-your-gpu-go-brrr-programing-a-network-layer-in-cuda.html"},"url":"http://localhost:4000/jekyll/update/2024/02/23/making-your-gpu-go-brrr-programing-a-network-layer-in-cuda.html"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-02-23T12:00:00-03:00","datePublished":"2024-02-23T12:00:00-03:00","description":"I still remember the “dark ages” of research, when I was still doing my masters when it was common to find really impactful publications that provided no code. And yes, I’ve sent my fair share of emails to authors… Fortunately, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deep learning frameworks really helped everyone to create way smaller, cleaner code, that was also easier to share.","headline":"Making your GPU go BRRR: Creating a CUDA Layer in PyTorch","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/jekyll/update/2024/02/23/making-your-gpu-go-brrr-programing-a-network-layer-in-cuda.html"},"url":"http://localhost:4000/jekyll/update/2024/02/23/making-your-gpu-go-brrr-programing-a-network-layer-in-cuda.html"}</script>
 <!-- End Jekyll SEO tag -->
-<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="GFickel Blog" /></head>
-<body><header class="site-header" role="banner">
+<link rel="stylesheet" href="/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="GFickel Blog" />
+</head>
+<body><header class="site-header">
 
-  <div class="wrapper"><a class="site-title" rel="author" href="/">GFickel Blog</a><nav class="site-nav">
-        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
-        <label for="nav-trigger">
-          <span class="menu-icon">
-            <svg viewBox="0 0 18 15" width="18px" height="15px">
-              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
-            </svg>
-          </span>
-        </label>
-
-        <div class="trigger"></div>
-      </nav></div>
+  <div class="wrapper"><a class="site-title" rel="author" href="/">GFickel Blog</a></div>
 </header>
 <main class="page-content" aria-label="Content">
       <div class="wrapper">
         <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
 
   <header class="post-header">
-    <h1 class="post-title p-name" itemprop="name headline">Making your GPU go BRRR - Programing a PyTorch Layer in CUDA</h1>
-    <p class="post-meta">
-      <time class="dt-published" datetime="2024-02-23T12:00:00-03:00" itemprop="datePublished">Feb 23, 2024
+    <h1 class="post-title p-name" itemprop="name headline">Making your GPU go BRRR: Creating a CUDA Layer in PyTorch</h1>
+    <p class="post-meta"><time class="dt-published" datetime="2024-02-23T12:00:00-03:00" itemprop="datePublished">
+        Feb 23, 2024
       </time></p>
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
-    <p>I still remember the “dark ages” of research, when I was still doing my masters, that it was common to find really impactfull publications that provided no code. And yes, I’ve send my fair share of emails to authors… Fortunatelly, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deeplearning frameworks really helped everyone to create way smaller, cleaner code, that were also easier to share.</p>
+    <p>I still remember the “dark ages” of research, when I was still doing my masters when it was common to find really impactful publications that provided no code. And yes, I’ve sent my fair share of emails to authors… Fortunately, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deep learning frameworks really helped everyone to create way smaller, cleaner code, that was also easier to share.</p>
 
-<p>Those frameworks are really incredible, and allow us to quickly implement and test new ideas, however they are not always the fastest way, even if they using CUDA down the line. A good example is the amazing work of Flash Attention, that implemented the Attention machanism (yeah, the one used on all LLMs right now) in CUDA, and achieved a great runtime improvement.</p>
+<p>Those frameworks are really incredible and allow us to quickly implement and test new ideas, however, they are not always the fastest way, even if they use CUDA down the line. This is definitely becoming a bottleneck. PyTorch 2 implemented a compile process to fuse layers to improve GPU usage, Flash Attention did the same by directly programming Attention in CUDA and achieved an even greater runtime improvement. And recently I’ve seen a trend to reimplement slower Python code in Rust <a href="https://github.com/huggingface/tokenizers">like this</a> one from Hugging Face.</p>
 
-<p>CUDA programming may seem intimidating, at least it was for me. I first learned circa 2010 and it was a really bad development experience, but by watching an <a href="https://www.youtube.com/watch?v=nOxKexn3iBo">awesome video</a> by Jeremy Howard, I’ve learned that it is indeed possible to have a much better experience. And the main idea is the following:</p>
+<p>CUDA programming may seem intimidating, at least it was for me. I first learned circa 2010 and it was a really bad development experience, but by watching an <a href="https://www.youtube.com/watch?v=nOxKexn3iBo">awesome video</a> by Jeremy Howard, I’ve learned that it is indeed possible to have a much better experience. The main idea is the following:</p>
 
 <ol>
   <li>Implement the forward and backward pass in PyTorch. This gives access to an online debugger and the full functionality of Python, like Jupyter Notebooks.</li>
-  <li>Validate the implementation with gradcheck. This somewhat magic function, runs your forward pass and do numerical derivation to validate your backward pass code.</li>
-  <li>Program the CUDA Kernel for forward and backward pass using Numba, directly in Python. This is the real thing, where we are dealing CUDA threads and possibly memory management.</li>
+  <li>Validate the implementation with gradcheck. This somewhat magic function runs your forward pass and does numerical derivation to validate your backward pass code.</li>
+  <li>Program the CUDA Kernel for forward and backward passes using Numba, directly in Python. This is the real thing, where we are dealing with CUDA threads and possibly memory management.</li>
   <li>Ask <a href="https://chat.openai.com/">Chat-GPT</a> to convert this code to C CUDA. Really, it works surprisingly well!</li>
   <li>Use PyTorch internal functionality to compile this C CUDA to a Python module that you can use with torch tensors.</li>
   <li>Use gradcheck again to verify that your CUDA written layer is 100% correct.</li>
 </ol>
 
-<p>It may be a couple of hoops, but the ability to develop CUDA code in Python makes our lives so much easier. You have easier integration with debugers, and the iteration time between changes in code and running it is nearly instant, compared to the long time it takes to compile C CUDA. And you may noticed that mentioned both forward and backward pass, and unfortunatly, if we use CUDA for our backward pass, we can’t rely on autograd to get this for us. But fortunatly we have this amazing funtion from PyTorch, <a href="https://pytorch.org/docs/stable/notes/gradcheck.html">gradcheck</a>, that will validate for us if our backpropagation is indeed correct.</p>
+<p>It may be a couple of hoops, but the ability to develop CUDA code in Python makes our lives so much easier. You have easier integration with debugers, and the iteration time between changes in code and running it is nearly instant, compared to the long time it takes to compile C CUDA. You may noticed that mentioned both forward and backward passes, and unfortunately, if we use CUDA for our backward pass, we can’t rely on autograd to get this for us. But fortunately, we have this amazing function from PyTorch, <a href="https://pytorch.org/docs/stable/notes/gradcheck.html">gradcheck</a>, that will validate for us if our backpropagation is indeed correct.</p>
 
-<p>So let’s stop talking and lets start coding. For our example I’ve chosen the Sigmoid activation that have some interesting characteristics.</p>
+<p>So in this first part, we will tackle numbers 1 and 2. And in the second part, we will dive into the CUDA programming. But we need some kind of end goal, and for us, it will be the implementation of the Sigmoid activation. You’ll see that it has some interesting characteristics that will help us explore interesting (and important) aspects of creating a performant CUDA layer.</p>
 
-<h2 id="implement-in-pytorch">Implement in PyTorch</h2>
+<h2 id="1-forward-and-backward-passes-in-pytorch">1. Forward and Backward passes in PyTorch</h2>
 
-<p>The idea is</p>
+<p>The idea here is to do two functions: one for the forward pass and the backward one. But first, let’s remember the formula for the sigmoid and its derivative:</p>
 
-\[x = {-b \pm \sqrt{b^2-4ac} \over 2a}\]
+\[\sigma(x) = \frac{1}{1+e^{-x}}\]
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">code</span>
+\[\sigma^{'}(x) = \sigma(x)(1-\sigma(x))\]
+
+<p>Those are not that complicated to implement, especially the derivative that only depends on the value of the sigmoid that we already computed on the forward pass. However, this sigmoid equation does present some numerical instabilities, so it is better to implement the following:</p>
+
+\[\sigma(x)=\begin{cases}
+\frac{1}{1+e^{-x}} &amp; \text{ if } x&gt;=0 \\ 
+\frac{e^{x}}{1+e^{x}} &amp; \text{ if } x&lt;0 
+\end{cases}\]
+
+<p>With this in mind, we can generate the following Python code:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">sigmoid_forward_torch</span><span class="p">(</span><span class="nb">input</span><span class="p">):</span>
+    <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">empty_like</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+    <span class="n">positive_mask</span> <span class="o">=</span> <span class="nb">input</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+    <span class="n">out_tensor</span><span class="p">[</span><span class="n">positive_mask</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">torch</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="nb">input</span><span class="p">[</span><span class="n">positive_mask</span><span class="p">]))</span>
+    <span class="n">out_tensor</span><span class="p">[</span><span class="o">~</span><span class="n">positive_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="nb">input</span><span class="p">[</span><span class="o">~</span><span class="n">positive_mask</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">torch</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="nb">input</span><span class="p">[</span><span class="o">~</span><span class="n">positive_mask</span><span class="p">]))</span>
+    
+    <span class="k">return</span> <span class="n">out_tensor</span>
+
+<span class="k">def</span> <span class="nf">sigmoid_backward_torch</span><span class="p">(</span><span class="nb">input</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">input</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="nb">input</span><span class="p">)</span>
 </code></pre></div></div>
+
+<p>Notice that I’ve used a variable called <em>positive_mask</em> to create an index to identify positive and negative input values. Other than that, the code is somewhat straightforward.</p>
+
+<h2 id="2-check-our-derivatives">2. Check our Derivatives</h2>
+
+<p>Now that we have a Python code to do our forward and backward pass we can test if they are coherent with each other. In other words, we will use <a href="https://pytorch.org/docs/stable/notes/gradcheck.html">gradcheck</a> from PyTorch to run a forward pass, compute numerically what the derivative should be, and check our backward pass result. But first, we must set it within its autograd format. It is not that complicated, and stays like this:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Sigmoid</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="n">Function</span><span class="p">):</span>
+    <span class="s">"""The Sigmoid activation function."""</span>
+
+    <span class="o">@</span><span class="nb">staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="s">"""Performs a forward pass."""</span>
+
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">empty_like</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+        <span class="n">positive_mask</span> <span class="o">=</span> <span class="nb">input</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="n">out_tensor</span><span class="p">[</span><span class="n">positive_mask</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">torch</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="nb">input</span><span class="p">[</span><span class="n">positive_mask</span><span class="p">]))</span>
+        <span class="n">out_tensor</span><span class="p">[</span><span class="o">~</span><span class="n">positive_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="nb">input</span><span class="p">[</span><span class="o">~</span><span class="n">positive_mask</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">torch</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="nb">input</span><span class="p">[</span><span class="o">~</span><span class="n">positive_mask</span><span class="p">]))</span>
+        
+        <span class="n">ctx</span><span class="p">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">out_tensor</span>
+
+    <span class="o">@</span><span class="nb">staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">:</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="s">"""Performs a backpropagation."""</span>
+
+        <span class="p">(</span><span class="n">result</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ctx</span><span class="p">.</span><span class="n">saved_tensors</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">grad_output</span> <span class="o">*</span> <span class="n">grad</span>
+</code></pre></div></div>
+
+<p>Notice that both on forward and backward pass we are dealing with an additional variable: ctx. This is our context, that we can use to save some data on our forward pass to use on backward. This is quite handy for our Sigmoid since the backward pass is a simple formula that uses the forward pass result, so we save it on the context for our backpropagation.</p>
+
+<p>Finally, on the backward pass, we get the sigmoid result that we stored on ctx and use it to compute its derivative. But we have another input, that is the input derivative that is being propagated to our layer. So our final gradient is this derivative multiplied by our sigmoid derivative.</p>
+
+<p>With this in hand, we can call the following function to check if everything is correct:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sigmoid</span> <span class="o">=</span> <span class="n">Sigmoid</span><span class="p">.</span><span class="nb">apply</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">double</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="n">gradcheck</span><span class="p">(</span><span class="n">sigmoid</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'gradcheck successful :D'</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'gradcheck unsuccessful :D'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>If everything is correct we are ready to think about how to implement it in CUDA, otherwise, we can back up and check what we did wrong.</p>
+
+<h2 id="3-cuda-implementation-using-numba">3. CUDA Implementation using Numba</h2>
+
+<p>(I will not dive into all the details on how CUDA works, but I suggest you check <a href="https://www.youtube.com/watch?v=nOxKexn3iBo">this video</a> by Jeremy Howard to see a great explanation about it!)</p>
+
+<p>The first thing we need to do is decide how we are going to model this in CUDA. I believe the most sensible approach is to create a thread for each element on the input Tensor, for both forward and backward passes. And to finally implement it, we can use the <a href="https://numba.pydata.org/">Numba library</a>, which is a JIT compiler for Python with support for CUDA, SIMD, and even threading. But for our case, we are more interested in the CUDA dev environment, especially the <a href="https://numba.pydata.org/numba-doc/latest/cuda/simulator.html#simulator">CUDA simulator</a>.</p>
+
+<p>To start, the first thing we must do is set NUMBA_ENABLE_CUDASIM=’1’ as an environment variable before we import Numba. Then we just need to add the @cuda.jit decorator on top of our CUDA kernel function and we are good to go!</p>
+
+<p>Let’s start with the following code for both the forward and backward passes:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">numba</span> <span class="kn">import</span> <span class="n">cuda</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="o">@</span><span class="n">cuda</span><span class="p">.</span><span class="n">jit</span>
+<span class="k">def</span> <span class="nf">sigmoid_forward</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">input_len</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+    <span class="n">cbi</span><span class="p">,</span><span class="n">cbd</span><span class="p">,</span><span class="n">tid</span> <span class="o">=</span> <span class="n">cuda</span><span class="p">.</span><span class="n">blockIdx</span><span class="p">,</span><span class="n">cuda</span><span class="p">.</span><span class="n">blockDim</span><span class="p">,</span><span class="n">cuda</span><span class="p">.</span><span class="n">threadIdx</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">cbi</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">cbd</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">tid</span><span class="p">.</span><span class="n">x</span>
+
+    <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="n">input_len</span><span class="p">:</span>
+        <span class="k">return</span>
+    
+    <span class="k">if</span> <span class="nb">input</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span> <span class="mf">1.</span> <span class="o">+</span> <span class="n">math</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="nb">input</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">math</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="nb">input</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span> <span class="mf">1.</span> <span class="o">+</span> <span class="n">math</span><span class="p">.</span><span class="n">exp</span><span class="p">(</span><span class="nb">input</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="p">)</span>
+
+    <span class="n">out</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+
+<span class="o">@</span><span class="n">cuda</span><span class="p">.</span><span class="n">jit</span>
+<span class="k">def</span> <span class="nf">sigmoid_backward</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">input_len</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+    <span class="n">cbi</span><span class="p">,</span><span class="n">cbd</span><span class="p">,</span><span class="n">tid</span> <span class="o">=</span> <span class="n">cuda</span><span class="p">.</span><span class="n">blockIdx</span><span class="p">,</span><span class="n">cuda</span><span class="p">.</span><span class="n">blockDim</span><span class="p">,</span><span class="n">cuda</span><span class="p">.</span><span class="n">threadIdx</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">cbi</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">cbd</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">tid</span><span class="p">.</span><span class="n">x</span>
+
+    <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="n">input_len</span><span class="p">:</span>
+        <span class="k">return</span>
+    
+    <span class="n">out</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="nb">input</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+</code></pre></div></div>
+<p>There is a lot to unpack here, so let’s start with the first lines. We are accessing <em>cuda.blockIdx</em> and <em>cuda.threadIdx</em> to get our block and thread indexes, and <em>cuda.blockDim</em> to know how many threads we have per block. And since we are using a single thread to compute a single value from our input tensor, we get our final index with</p>
+
+<p>\(idx = B_{index} * B_{size} + T_{index}\),</p>
+
+<p>where \(B_{size}\) is the number of threads per block, \(B_{index}\) and \(T_{index}\) are the block and thread indexes.</p>
+
+<p>Having our current index, we must check if this index is within our input tensor size, and return without doing anything if it is not. Those cases will happen when the total number of threads, i.e. number of thread blocks times block size, is not exactly the same as the input size.</p>
+
+<p>If everything is correct, we will take the current value from input at location \(idx\) and calculate our Sigmoid. Nothing too fancy here. But we can test with the following code:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">sigmoid_numba</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">fun</span><span class="p">,</span> <span class="n">tw</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">gradcheck</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="p">(</span><span class="n">input_len</span><span class="p">,)</span> <span class="o">=</span> <span class="nb">input</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">input_len</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="p">.</span><span class="n">contiguous</span><span class="p">().</span><span class="n">cuda</span><span class="p">()</span>
+    <span class="n">tpb</span> <span class="o">=</span> <span class="n">tw</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="n">cdiv</span><span class="p">(</span><span class="n">input_len</span><span class="p">,</span><span class="n">tpb</span><span class="p">)</span>
+    <span class="n">fun</span><span class="p">[</span><span class="n">blocks</span><span class="p">,</span> <span class="n">tpb</span><span class="p">](</span><span class="nb">input</span><span class="p">,</span> <span class="n">input_len</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span> 
+    <span class="k">return</span> <span class="n">out</span>
+    
+<span class="nb">input</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">as_tensor</span><span class="p">([</span><span class="mf">0.3</span><span class="p">,</span> <span class="o">-</span><span class="mi">100000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="nb">input</span> <span class="o">=</span> <span class="nb">input</span><span class="p">.</span><span class="n">contiguous</span><span class="p">().</span><span class="n">cuda</span><span class="p">()</span>
+
+<span class="n">res</span> <span class="o">=</span> <span class="n">sigmoid_numba</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">sigmoid_forward</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">grad</span> <span class="o">=</span> <span class="n">sigmoid_numba</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">sigmoid_backward</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>I’ve created an auxiliary function called <em>sigmoid_numba</em> to encapsulate the important (and boring) code necessary to allocate our output tensor and calculate an appropriate number of threads per block and thread blocks. Those configurations have some upper limits depending on your CUDA GPU, and the optimal value for each also depends on the GPU version. But for now, we are just going with some numbers that somewhat seem right, and in the end, we can run a small benchmark to decide the best values for our particular GPU. And finally, notice that our input tensor is calling two functions: contiguous() and cuda(): <a href="https://pytorch.org/docs/stable/generated/torch.Tensor.contiguous.html#torch.Tensor.contiguous">contiguous</a> makes sure that our tensor is contiguous in memory since we are accessing it like a single dimensional array; <a href="https://pytorch.org/docs/stable/generated/torch.Tensor.cuda.html#torch.Tensor.cuda">cuda</a> returns a copy of our tensor in CUDA memory.</p>
+
+<p>And that’s it, with this code you are programming a CUDA kernel, but with the big difference that we can use a debugger and step to our code as we wish, and with a much smaller iteration time :). Notice that it is best to set \(B_{size}=1\) when doing breakpoints since the debuggers usually don’t work well with multiple threads calling a breakpoint at the same time.</p>
+
+<p>This Numba CUDA development is way easier, and if we change our env variable to NUMBA_ENABLE_CUDASIM=’0’ we can run this code that Numba will compile it to CUDA for us, and we can see the performance that we should get. For some reason, the direct implementation in C CUDA is usually faster, with differences of 2x to be expected, but even then it should show us how fast our final implementation should be.</p>
+
+<h2 id="4-calling-out-chat-gpt-to-help-us">4. Calling out chat-GPT to Help Us</h2>
+
+<p>The Numba development is there to help us, but the final goal is to generate a C CUDA kernel that we can directly call on PyTorch. Fortunately, Chat-GPT is plenty capable of doing this! I’ve pasted the following query, followed by the Numba code: “QUERY TO CHAT GPT”</p>
+
+<p>And it gave me the following result:</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;math.h&gt;</span><span class="cp">
+</span>
+<span class="n">__global__</span> <span class="kt">void</span> <span class="nf">sigmoid_forward_cuda_kernel</span><span class="p">(</span><span class="k">const</span> <span class="kt">float</span><span class="o">*</span> <span class="n">input</span><span class="p">,</span> <span class="kt">int</span> <span class="n">input_len</span><span class="p">,</span> <span class="kt">float</span><span class="o">*</span> <span class="n">out</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">idx</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">idx</span> <span class="o">&lt;</span> <span class="n">input_len</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kt">float</span> <span class="n">res</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">input</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">expf</span><span class="p">(</span><span class="o">-</span><span class="n">input</span><span class="p">[</span><span class="n">idx</span><span class="p">]));</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">expf</span><span class="p">(</span><span class="n">input</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">expf</span><span class="p">(</span><span class="n">input</span><span class="p">[</span><span class="n">idx</span><span class="p">]));</span>
+        <span class="p">}</span>
+
+        <span class="n">out</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span> <span class="n">sigmoid_forward_cuda</span><span class="p">(</span><span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span> <span class="n">input</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">CHECK_INPUT</span><span class="p">(</span><span class="n">input</span><span class="p">);</span>
+    <span class="c1">// Get the data pointers and sizes</span>
+    <span class="kt">float</span><span class="o">*</span> <span class="n">input_data_ptr</span> <span class="o">=</span> <span class="n">input</span><span class="p">.</span><span class="n">data_ptr</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">();</span>
+    <span class="kt">int</span> <span class="n">input_len</span> <span class="o">=</span> <span class="n">input</span><span class="p">.</span><span class="n">numel</span><span class="p">();</span>
+
+    <span class="c1">// Allocate output tensor on GPU</span>
+    <span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span> <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">::</span><span class="n">empty_like</span><span class="p">(</span><span class="n">input</span><span class="p">);</span>
+
+    <span class="c1">// Get the data pointer for the output tensor</span>
+    <span class="kt">float</span><span class="o">*</span> <span class="n">out_data_ptr</span> <span class="o">=</span> <span class="n">out_tensor</span><span class="p">.</span><span class="n">data_ptr</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">();</span>
+
+    <span class="c1">// Set block and grid dimensions</span>
+    <span class="kt">int</span> <span class="n">threads_per_block</span> <span class="o">=</span> <span class="mi">256</span><span class="p">;</span> <span class="c1">// You may adjust this based on your specific GPU capabilities</span>
+    <span class="kt">int</span> <span class="n">num_blocks</span> <span class="o">=</span> <span class="p">(</span><span class="n">input_len</span> <span class="o">+</span> <span class="n">threads_per_block</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">threads_per_block</span><span class="p">;</span>
+
+    <span class="c1">// Launch CUDA kernel</span>
+    <span class="n">sigmoid_forward_cuda_kernel</span><span class="o">&lt;&lt;&lt;</span><span class="n">num_blocks</span><span class="p">,</span> <span class="n">threads_per_block</span><span class="o">&gt;&gt;&gt;</span><span class="p">(</span><span class="n">input_data_ptr</span><span class="p">,</span> <span class="n">input_len</span><span class="p">,</span> <span class="n">out_data_ptr</span><span class="p">);</span>
+
+    <span class="c1">// Synchronize to ensure the kernel is done before proceeding</span>
+    <span class="n">cudaDeviceSynchronize</span><span class="p">();</span>
+    <span class="n">C10_CUDA_KERNEL_LAUNCH_CHECK</span><span class="p">();</span>
+
+    <span class="k">return</span> <span class="n">out_tensor</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Notice that in the query we’ve explicitly told chat-GPT to accept a torch::tensor as input and return another one as output. This makes our lives so much easier in the following steps.</p>
+
+<p>The backward pass is quite similar, and you can check it on my <a href="https://github.com/gfickel/cuda-sigmoid">repo</a>.</p>
+
+<h2 id="5-using-pytorch-to-compile-c-cuda">5. Using PyTorch to Compile C CUDA</h2>
+
+<p>I really didn’t know that PyTorch could do this, but if you have the dev files for CUDA and ninja build installed on your system you can pass the C CUDA code as a string and it will build it as a Python module for you. So first, to set things up we must have some auxiliary functions (thanks to Jeremy Howard), that you can check out <a href="https://github.com/gfickel/cuda-sigmoid/blob/main/utils.py">here</a>. The most important bit is a helper function to call <a href="https://pytorch.org/docs/stable/cpp_extension.html#torch.utils.cpp_extension.load_inline">load_inline</a> from PyTorch. It enables us to pass a C CUDA code as a string and compile it to a Python model containing the kernel as a Python function. It is quite amazing.</p>
+
+<p>So, let’s compile our C CUDA kernel! Here are the steps:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">cuda_src</span> <span class="o">=</span> <span class="n">FORWARD_PASS_CUDA_CODE_FROM_CHAT_GPT</span>
+<span class="n">fname</span> <span class="o">=</span> <span class="s">'sigmoid_forward_cuda'</span>
+<span class="n">cpp_src</span> <span class="o">=</span> <span class="s">'torch::Tensor sigmoid_forward_cuda(torch::Tensor input);'</span>
+
+<span class="n">module_forward</span> <span class="o">=</span> <span class="n">load_cuda</span><span class="p">(</span><span class="n">cuda_src</span><span class="p">,</span> <span class="n">cpp_src</span><span class="p">,</span> <span class="p">[</span><span class="n">fname</span><span class="p">])</span>
+
+<span class="nb">input</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">as_tensor</span><span class="p">([</span><span class="mf">0.3</span><span class="p">,</span> <span class="o">-</span><span class="mi">100000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="nb">input</span> <span class="o">=</span> <span class="nb">input</span><span class="p">.</span><span class="n">contiguous</span><span class="p">().</span><span class="n">cuda</span><span class="p">()</span>
+<span class="n">res</span> <span class="o">=</span> <span class="n">module_forward</span><span class="p">.</span><span class="n">sigmoid_forward_cuda</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+</code></pre></div></div>
+<p>And that’s it! But first, let’s explain those lines a little bit. First, <strong><em>cuda_src</em></strong> is a Python string containing our code that was so gently translated to us by chat GPT. <strong><em>fname</em></strong> is the function name that we want to expose as a function in our compiled module, and <strong><em>cpp_src</em></strong> is the C++ code that is compiled with our CUDA kernel, and all it has is the declaration of our function. With all of this, we can finally call our helper <strong><em>load_cuda</em></strong>, defined in our <strong><em>utils.py</em></strong> if you want to check it out, and it returns our new Python module with our <strong><em>sigmoid_forward_cuda</em></strong> function.</p>
+
+<p>For the backward pass, it is mostly the same process, as expected. Here it is:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">cuda_src</span> <span class="o">=</span> <span class="n">BACKWARD_PASS_CUDA_CODE_FROM_CHAT_GPT</span>
+<span class="n">fname</span> <span class="o">=</span> <span class="s">'sigmoid_backward_cuda'</span>
+<span class="n">cpp_src</span> <span class="o">=</span> <span class="s">'torch::Tensor sigmoid_backward_cuda(torch::Tensor input);'</span>
+
+<span class="n">module_backward</span> <span class="o">=</span> <span class="n">load_cuda</span><span class="p">(</span><span class="n">cuda_src</span><span class="p">,</span> <span class="n">cpp_src</span><span class="p">,</span> <span class="p">[</span><span class="n">fname</span><span class="p">])</span>
+
+<span class="n">grad</span> <span class="o">=</span> <span class="n">module_backward</span><span class="p">.</span><span class="n">sigmoid_backward_cuda</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="6-check-our-gradients-again">6. Check our Gradients Again</h2>
+
+<p>Great, we have both our forward and backward passes implemented in CUDA! However, are they correct? Did chat gpt make some silly mistake on the translation part? Well, at least we can check if the backward is indeed the correct derivation for the forward pass. Just like we did in step 2, we must call checkgradients. And to do this, first, we must adhere to the autograd interface, like this:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">CUDASigmoid</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="n">Function</span><span class="p">):</span>
+    <span class="o">@</span><span class="nb">staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">module_forward</span><span class="p">.</span><span class="n">sigmoid_forward_cuda</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="p">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="o">@</span><span class="nb">staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">:</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">result</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ctx</span><span class="p">.</span><span class="n">saved_tensors</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="n">module_forward</span><span class="p">.</span><span class="n">sigmoid_backward_cuda</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">grad_output</span> <span class="o">*</span> <span class="n">grad</span>
+</code></pre></div></div>
+
+<p>Not that bad, if you ask me, and not that different from the one from step 2. And now, for the finale:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sigmoid</span> <span class="o">=</span> <span class="n">CUDASigmoid</span><span class="p">.</span><span class="nb">apply</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="nb">float</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c1"># Changing eps and atol since we are dealing with float32
+</span><span class="k">if</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="n">gradcheck</span><span class="p">(</span><span class="n">sigmoid</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'gradcheck successful :D'</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'gradcheck unsuccessful :D'</span><span class="p">)</span>
+</code></pre></div></div>
+<p>Wait, something is different. Our <strong><em>eps</em></strong> and <strong><em>atol</em></strong> are smaller, and our test data is float32 instead of float64. This final difference is indeed the key: gradcheck is made to work with float64, otherwise we will have some larger errors from our floating point operations. And since we’ve only implemented in float32 we must lower our error thresholds. It was indeed quite possible to use C++ templates and generate a double (i.e. float64) kernel also, but it was going to introduce some unnecessary complications for now.</p>
+
+<p>With those caveats aside, our gradcheck should be passing and we are officially golden, our CUDA Sigmoid implementation is over!</p>
+
+<h2 id="conclusions">Conclusions</h2>
+
+<p>Uou, that was a long post. However, I tried to skim only the not-critical details and explain in greater detail the development pipeline. That is the key point that you should be taking from here: how to make CUDA development less sucky. I believe that this is an interesting knowledge to have, and</p>
 
   </div><a class="u-url" href="/jekyll/update/2024/02/23/making-your-gpu-go-brrr-programing-a-network-layer-in-cuda.html" hidden></a>
 </article>
@@ -84,21 +331,23 @@
 
   <div class="wrapper">
 
-    <h2 class="footer-heading">GFickel Blog</h2>
-
     <div class="footer-col-wrapper">
-      <div class="footer-col footer-col-1">
-        <ul class="contact-list">
-          <li class="p-name">GFickel Blog</li><li><a class="u-email" href="mailto:guilhermefickel@gmail.com">guilhermefickel@gmail.com</a></li></ul>
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="http://localhost:4000/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
       </div>
-
-      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/gfickel"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">gfickel</span></a></li><li><a href="https://www.twitter.com/guilhermefickel"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">guilhermefickel</span></a></li></ul>
-</div>
-
-      <div class="footer-col footer-col-3">
+      <div class="footer-col">
         <p>A Blog mostly geared toward Machine Learning and high performance code.</p>
       </div>
     </div>
+
+    <div class="social-links"><ul class="social-media-list"></ul>
+</div>
 
   </div>
 
@@ -106,3 +355,8 @@
 </body>
 
 </html>
+
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
