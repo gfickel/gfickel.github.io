@@ -109,7 +109,7 @@ If everything is correct we are ready to think about how to implement it in CUDA
 
 (I will not dive into all the details on how CUDA works, but I suggest you check [this video](https://www.youtube.com/watch?v=nOxKexn3iBo) by Jeremy Howard to see a great explanation about it!)
 
-The first thing we need to do is decide how we are going to model this in CUDA. I believe the most sensible approach is to create a thread for each element on the input Tensor, for both forward and backward passes. And to finally implement it, we can use the [Numba library](https://numba.pydata.org/), which is a JIT compiler for Python with support for CUDA, SIMD, and even threading. But for our case, we are more interested in the CUDA dev environment, especially the [CUDA simulator](https://numba.pydata.org/numba-doc/latest/cuda/simulator.html#simulator).
+The first thing we need to do is decide how we are going to model this in CUDA. I believe the most sensible approach is to use a single thread for each element on the input Tensor, for both forward and backward passes. And to finally implement it, we can use the [Numba library](https://numba.pydata.org/), which is a JIT compiler for Python with support for CUDA, SIMD, and even threading. But for our case, we are more interested in the CUDA dev environment, especially the [CUDA simulator](https://numba.pydata.org/numba-doc/latest/cuda/simulator.html#simulator).
 
 To start, the first thing we must do is set NUMBA_ENABLE_CUDASIM='1' as an environment variable before we import Numba. Then we just need to add the @cuda.jit decorator on top of our CUDA kernel function and we are good to go!
 
@@ -143,7 +143,7 @@ def sigmoid_backward(input, input_len, out):
     
     out[idx] = input[idx]*(1-input[idx])
 ```
-There is a lot to unpack here, so let's start with the first lines. We are accessing *cuda.blockIdx* and *cuda.threadIdx* to get our block and thread indexes, and *cuda.blockDim* to know how many threads we have per block. And since we are using a single thread to compute a single value from our input tensor, we get our final index with
+There is a lot to unpack here, so let's start with the first lines. We are accessing ***cuda.blockIdx*** and ***cuda.threadIdx*** to get our block and thread indexes, and ***cuda.blockDim*** to know how many threads we have per block. And since we are using a single thread to compute a single value from our input tensor, we get our final index with
 
 $$ idx = B_{index} * B_{size} + T_{index} $$,
 
@@ -170,18 +170,18 @@ res = sigmoid_numba(input, sigmoid_forward, 1)
 grad = sigmoid_numba(res, sigmoid_backward, 1)
 ```
 
-I've created an auxiliary function called *sigmoid_numba* to encapsulate the important (and boring) code necessary to allocate our output tensor and calculate an appropriate number of threads per block and thread blocks. Those configurations have some upper limits depending on your CUDA GPU, and the optimal value for each also depends on the GPU version. But for now, we are just going with some numbers that somewhat seem right, and in the end, we can run a small benchmark to decide the best values for our particular GPU. And finally, notice that our input tensor is calling two functions: contiguous() and cuda(): [contiguous](https://pytorch.org/docs/stable/generated/torch.Tensor.contiguous.html#torch.Tensor.contiguous) makes sure that our tensor is contiguous in memory since we are accessing it like a single dimensional array; [cuda](https://pytorch.org/docs/stable/generated/torch.Tensor.cuda.html#torch.Tensor.cuda) returns a copy of our tensor in CUDA memory.
+I've created an auxiliary function called ***sigmoid_numba*** to encapsulate the important (and boring) code necessary to allocate our output tensor and calculate an appropriate number of threads per block and thread blocks. Those configurations have some upper limits depending on your CUDA GPU, and the optimal value for each also depends on the GPU version. But for now, we are just going with some numbers that somewhat seem right, and in the end, we can run a small benchmark to decide the best values for our particular GPU. And finally, notice that our input tensor is calling two functions: contiguous() and cuda(): [contiguous](https://pytorch.org/docs/stable/generated/torch.Tensor.contiguous.html#torch.Tensor.contiguous) makes sure that our tensor is contiguous in memory since we are accessing it like a single dimensional array; [cuda](https://pytorch.org/docs/stable/generated/torch.Tensor.cuda.html#torch.Tensor.cuda) returns a copy of our tensor in CUDA memory.
 
 And that's it, with this code you are programming a CUDA kernel, but with the big difference that we can use a debugger and step to our code as we wish, and with a much smaller iteration time :). Notice that it is best to set $$ B_{size}=1 $$ when doing breakpoints since the debuggers usually don't work well with multiple threads calling a breakpoint at the same time.
 
-This Numba CUDA development is way easier, and if we change our env variable to NUMBA_ENABLE_CUDASIM='0' we can run this code that Numba will compile it to CUDA for us, and we can see the performance that we should get. For some reason, the direct implementation in C CUDA is usually faster, with differences of 2x to be expected, but even then it should show us how fast our final implementation should be.
+This Numba CUDA development is way easier, and if we change our env variable to NUMBA_ENABLE_CUDASIM='0' we can run this code that Numba will compile it to CUDA for us, and we can see the performance that we should get. For some reason, the direct implementation in C CUDA is usually faster, with differences of 2x to be expected, but even then it should show us how fast our final implementation should be. Notice, however, that without CUDA Simulator enabled we will losse the ability to debug our code and use numpy/torch functions. You can check out [here](https://numba.pydata.org/numba-doc/latest/cuda/cudapysupported.html) what is supported. 
 
 
 ## 4. Calling out chat-GPT to Help Us
 
-The Numba development is there to help us, but the final goal is to generate a C CUDA kernel that we can directly call on PyTorch. Fortunately, Chat-GPT is plenty capable of doing this! I've pasted the following query, followed by the Numba code: "QUERY TO CHAT GPT"
+The Numba development is there to help us, but the final goal is to generate a C CUDA kernel that we can directly call on PyTorch. Fortunately, Chat-GPT is plenty capable of doing this! I've pasted the following query, followed by the Numba code: "Convert the following python code to C CUDA kernel. Also add a function that uses torch library to pass the input arguments, call the CUDA kernel, check for errors. The function must receive torch::Tensor as input and return the output as torch::Tensor."
 
-And it gave me the following result:
+And it gave me the something really close to this:
 
 ```cpp
 #include <math.h>
