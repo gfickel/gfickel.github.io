@@ -303,4 +303,4 @@ With those caveats aside, our gradcheck should be passing and we are officially 
 
 Uou, that was a long post. However, I tried to skim only the not-critical details and explain in greater detail the development pipeline. That is the key point that you should be taking from here: how to make CUDA development less sucky. And by using this PyTorch feature to compile CUDA code, we can even run CUDA kernels on Google Collabs! You can check my Jupyter Notebook [here](https://github.com/gfickel/cuda-sigmoid) and give it a try!
 
-In the end, I do believe that this is an interesting knowledge to have, and in this day and age of huge LLMs, being able to tackle some performance bottlenecks can have a great impact as mentioned in my introduction. In the end, it somewhat boils down to what my older sister always told me: "Knowledge doesn't occupy space" :)
+I do believe that this is an interesting knowledge to have, and in this day and age of huge LLMs, being able to tackle some performance bottlenecks can have a great impact as mentioned in my introduction. In the end, it somewhat boils down to what my older sister always told me: "Knowledge doesn't occupy space" :)
