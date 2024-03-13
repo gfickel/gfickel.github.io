@@ -96,11 +96,12 @@ With this in hand, we can call the following function to check if everything is 
 sigmoid = Sigmoid.apply
 data = torch.randn(4, dtype=torch.double, requires_grad=True)
 
-if torch.autograd.gradcheck(sigmoid, data, eps=1e-8, atol=1e-7):
+if torch.autograd.gradcheck(sigmoid, data, eps=6e-4, atol=1e-7):
     print('gradcheck successful :D')
 else:
     print('gradcheck unsuccessful :D')
 ```
+
 
 If everything is correct we are ready to think about how to implement it in CUDA, otherwise, we can back up and check what we did wrong.
 
@@ -286,20 +287,20 @@ Not that bad, if you ask me, and not that different from the one from step 2. An
 
 ```python
 sigmoid = CUDASigmoid.apply
-data = torch.randn(4, dtype=torch.float, requires_grad=True)
+data = torch.randn(4, dtype=torch.float32, requires_grad=True).contiguous().cuda()
 
 # Changing eps and atol since we are dealing with float32
-if torch.autograd.gradcheck(sigmoid, data, eps=1e-4, atol=1e-5):
+if torch.autograd.gradcheck(sigmoid, data, eps=5e-4, atol=1e-7):
     print('gradcheck successful :D')
 else:
     print('gradcheck unsuccessful :D')
 ```
-Wait, something is different. Our ***eps*** and ***atol*** are smaller, and our test data is float32 instead of float64. This final difference is indeed the key: gradcheck is made to work with float64, otherwise we will have some larger errors from our floating point operations. And since we've only implemented in float32 we must lower our error thresholds. It was indeed quite possible to use C++ templates and generate a double (i.e. float64) kernel also, but it was going to introduce some unnecessary complications for now.
+You may have noticed a small, but very important change here: we are using float32 instead of double. Our CUDA implementation only deals with float32, so we can't test with float64. However, this presents some challenges for our gradcheck, since floating point errors are way more present, and we end it up having to change our *eps* to a higher value. I've tested with our vanilla PyTorch implementation to get a "correct" value for it, and then plug it back here. This is not a good practice, but in order to keep our CUDA code simpler I've avoided supporting other types than float32.
 
 With those caveats aside, our gradcheck should be passing and we are officially golden, our CUDA Sigmoid implementation is over!
 
 ## Conclusions
 
-Uou, that was a long post. However, I tried to skim only the not-critical details and explain in greater detail the development pipeline. That is the key point that you should be taking from here: how to make CUDA development less sucky. And by using this PyTorch feature to compile CUDA code, we can even run CUDA kernels on Google Collabs!
+Uou, that was a long post. However, I tried to skim only the not-critical details and explain in greater detail the development pipeline. That is the key point that you should be taking from here: how to make CUDA development less sucky. And by using this PyTorch feature to compile CUDA code, we can even run CUDA kernels on Google Collabs! You can check my Jupyter Notebook [here](https://github.com/gfickel/cuda-sigmoid) and give it a try!
 
-In the end, I do believe that this is an interesting knowledge to have, and in this day and age of huge LLMs, being able to tackle some performance bottlenecks can have a great impact.
+In the end, I do believe that this is an interesting knowledge to have, and in this day and age of huge LLMs, being able to tackle some performance bottlenecks can have a great impact as mentioned in my introduction. In the end, it somewhat boils down to what my older sister always told me: "Knowledge doesn't occupy space" :)
