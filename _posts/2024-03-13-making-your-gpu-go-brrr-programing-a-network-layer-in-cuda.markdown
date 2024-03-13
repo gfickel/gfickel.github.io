@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Making your GPU go BRRR: Creating a CUDA Layer in PyTorch"
-date:   2024-02-23 12:00:00 -0300
+date:   2024-03-13 12:00:00 -0300
 categories: jekyll update
 ---
 I still remember the "dark ages" of research, when I was still doing my masters when it was common to find really impactful publications that provided no code. And yes, I've sent my fair share of emails to authors... Fortunately, this is no longer the norm, and even somewhat frowned upon. Caffe, Tensorflow, Keras, PyTorch, and even more deep learning frameworks really helped everyone to create way smaller, cleaner code, that was also easier to share.
@@ -19,7 +19,7 @@ CUDA programming may seem intimidating, at least it was for me. I first learned 
 
 It may be a couple of hoops, but the ability to develop CUDA code in Python makes our lives so much easier. You have easier integration with debugers, and the iteration time between changes in code and running it is nearly instant, compared to the long time it takes to compile C CUDA. You may noticed that mentioned both forward and backward passes, and unfortunately, if we use CUDA for our backward pass, we can't rely on autograd to get this for us. But fortunately, we have this amazing function from PyTorch, [gradcheck](https://pytorch.org/docs/stable/notes/gradcheck.html), that will validate for us if our backpropagation is indeed correct. 
 
-We need some kind of end goal, and for us, it will be the implementation of the Sigmoid activation inspired by [David Oniani](https://www.youtube.com/watch?v=oxC3T_-_Amw). You'll see that it has some interesting characteristics that will help us explore interesting (and important) aspects of creating a performant CUDA layer.
+We need some kind of end goal, and for us, it will be the implementation of the Sigmoid activation inspired by [David Oniani](https://www.youtube.com/watch?v=oxC3T_-_Amw). You'll see that it has some interesting characteristics that will help us explore interesting (and important) aspects of creating a performant CUDA layer. And finally, all of this code can be found [here](https://github.com/gfickel/cuda-sigmoid)
 
 ## 1. Forward and Backward passes in PyTorch
 
@@ -174,14 +174,14 @@ I've created an auxiliary function called ***sigmoid_numba*** to encapsulate the
 
 And that's it, with this code you are programming a CUDA kernel, but with the big difference that we can use a debugger and step to our code as we wish, and with a much smaller iteration time :). Notice that it is best to set $$ B_{size}=1 $$ when doing breakpoints since the debuggers usually don't work well with multiple threads calling a breakpoint at the same time.
 
-This Numba CUDA development is way easier, and if we change our env variable to NUMBA_ENABLE_CUDASIM='0' we can run this code that Numba will compile it to CUDA for us, and we can see the performance that we should get. For some reason, the direct implementation in C CUDA is usually faster, with differences of 2x to be expected, but even then it should show us how fast our final implementation should be. Notice, however, that without CUDA Simulator enabled we will losse the ability to debug our code and use numpy/torch functions. You can check out [here](https://numba.pydata.org/numba-doc/latest/cuda/cudapysupported.html) what is supported. 
+This Numba CUDA development is way easier, and if we change our env variable to NUMBA_ENABLE_CUDASIM='0' we can run this code that Numba will compile it to CUDA for us, and we can see the performance that we should get. For some reason, the direct implementation in C CUDA is usually faster, with differences of 2x to be expected, but even then it should show us how fast our final implementation should be. Notice, however, that without CUDA Simulator enabled we will lose the ability to debug our code and use numpy/torch functions. You can check out [here](https://numba.pydata.org/numba-doc/latest/cuda/cudapysupported.html) what is supported. 
 
 
 ## 4. Calling out chat-GPT to Help Us
 
-The Numba development is there to help us, but the final goal is to generate a C CUDA kernel that we can directly call on PyTorch. Fortunately, Chat-GPT is plenty capable of doing this! I've pasted the following query, followed by the Numba code: "Convert the following python code to C CUDA kernel. Also add a function that uses torch library to pass the input arguments, call the CUDA kernel, check for errors. The function must receive torch::Tensor as input and return the output as torch::Tensor."
+The Numba development is there to help us, but the final goal is to generate a C CUDA kernel that we can directly call on PyTorch. Fortunately, Chat-GPT is plenty capable of doing this! I've pasted the following query, followed by the Numba code: "Convert the following python code to C CUDA kernel. Also add a function that uses torch library to pass the input arguments, call the CUDA kernel, and check for errors. The function must receive torch::Tensor as input and return the output as torch::Tensor."
 
-And it gave me the something really close to this:
+And it gave me something really close to this:
 
 ```cpp
 #include <math.h>
@@ -278,7 +278,7 @@ class CUDASigmoid(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor) -> torch.Tensor:
         (result,) = ctx.saved_tensors
-        grad = module_forward.sigmoid_backward_cuda(result)
+        grad = module_backward.sigmoid_backward_cuda(result)
         return grad_output * grad
 ```
 
