@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Creating a Model Server and Making Better Wheels | GFickel Blog</title>
+<meta name="generator" content="Jekyll v3.9.5" />
+<meta property="og:title" content="Creating a Model Server and Making Better Wheels" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="There are already some pretty good model servers with really good features, like Triton, TorchServer and TensorFlow Serving. So… why make another one when xkcd already warned us?" />
+<meta property="og:description" content="There are already some pretty good model servers with really good features, like Triton, TorchServer and TensorFlow Serving. So… why make another one when xkcd already warned us?" />
+<link rel="canonical" href="http://localhost:4000/jekyll/update/2024/03/23/creating-a-model-server-and-making-better-wheels.html" />
+<meta property="og:url" content="http://localhost:4000/jekyll/update/2024/03/23/creating-a-model-server-and-making-better-wheels.html" />
+<meta property="og:site_name" content="GFickel Blog" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-03-23T12:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Creating a Model Server and Making Better Wheels" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-23T12:00:00-03:00","datePublished":"2024-03-23T12:00:00-03:00","description":"There are already some pretty good model servers with really good features, like Triton, TorchServer and TensorFlow Serving. So… why make another one when xkcd already warned us?","headline":"Creating a Model Server and Making Better Wheels","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/jekyll/update/2024/03/23/creating-a-model-server-and-making-better-wheels.html"},"url":"http://localhost:4000/jekyll/update/2024/03/23/creating-a-model-server-and-making-better-wheels.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="GFickel Blog" />
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">GFickel Blog</a></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Creating a Model Server and Making Better Wheels</h1>
+    <p class="post-meta"><time class="dt-published" datetime="2024-03-23T12:00:00-03:00" itemprop="datePublished">
+        Mar 23, 2024
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>There are already some pretty good model servers with really good features, like <a href="https://github.com/triton-inference-server/server">Triton</a>, <a href="https://pytorch.org/serve/">TorchServer</a> and <a href="https://github.com/tensorflow/serving">TensorFlow Serving</a>. So… why make another one when xkcd already warned us?</p>
+
+<p><img src="/assets/xkcd-standards.png" alt="XKCD Standards" /></p>
+
+<p>I took some liberties using this comic strip, but the main point remains: why try to reinvent the wheel? This is an old and trusty saying, and there is so much new stuff that we could be creating instead of redoing something that has been done by several people, often with more experience in this particular area than you. But I don’t fully buy into that. It is a good rule of thumb for the, probably, vast majority of time, but not always. As John Carmack said in his <a href="https://www.youtube.com/watch?v=YOZnqjHkULc">Commencement Speech at UMKC</a>: “It’s almost perceived wisdom that you shouldn’t reinvent the wheel, but I urge you to occasionally try anyway. You’ll be better for the effort, and this is how we eventually end up with better wheels.” Getting better wheels is hard, but getting better for the effort is always the case.</p>
+
+<p>So getting back to our Model Server project, I wanted something that was simple to use and could add any model that I wanted, either PyTorch, TensorFlow, or ONNX, using both CPU and GPU. Also, there is the hidden cost of using a big Open Source project that is fixing and debugging code: don’t get me wrong, Open Source is awesome, but to immerse yourself into lots of new code, with several layers of little (and often not) documented abstractions is no easy feat. And like the following wisdom of xkcd warned us, we really should be careful when depending on a large stack of dependencies that we can’t grasp.</p>
+
+<p><img src="/assets/xkcd-dependency.png" alt="XKCD Dependency" /></p>
+
+<p>I will be starting using Python, since it is the language most used by ML folks, and should make our life easier when importing some more obscure and heavily code-dependent models. And to do our server <a href="https://grpc.io/">gRPC</a> seems like a great call: it is supported in a bunch of languages and defines the server interfaces through protobufs, which I quite like since it makes way harder to commit some silly errors passing and getting data from it. Let’s build it in parts, starting as simple as possible and adding new features after. If you want to look at the final code, check it out here: <a href="https://github.com/gfickel/tiny_model_server">https://github.com/gfickel/tiny_model_server</a></p>
+
+<h2 id="barebones-server">Barebones Server</h2>
+
+<p>With those previous definitions in mind, we can almost start writing the skeleton of a server, we just need to figure out how to define our interface and write the appropriate protobuf. Since I mostly deal with images, I’ll start implementing a route to receive an image and return a dict with the results. Let’s start with the protobuf:</p>
+
+<div class="language-proto highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">syntax</span> <span class="o">=</span> <span class="s">"proto3"</span><span class="p">;</span>
+
+<span class="kd">service</span> <span class="n">Server</span> <span class="p">{</span>
+  <span class="n">RPC</span> <span class="n">RunImage</span><span class="p">(</span><span class="n">ImageArgs</span><span class="p">)</span> <span class="k">returns</span> <span class="p">(</span><span class="n">Response</span><span class="p">)</span> <span class="p">{}</span>
+<span class="p">}</span>
+
+<span class="kd">message</span> <span class="nc">ImageArgs</span> <span class="p">{</span>
+    <span class="n">NumpyImage</span> <span class="na">image</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="kt">string</span> <span class="na">model</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">message</span> <span class="nc">Response</span> <span class="p">{</span>
+    <span class="kt">string</span> <span class="na">data</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>There is a lot to unpack here. You can check the <a href="https://protobuf.dev/programming-guides/proto3/">Protobuf Docs</a> for more details, but the main point here is the declaration of a service Server that has an RPC called RunImage. This RPC takes an ImageArgs and returns a Response. Looking at a high level all seems to make sense, so let’s look a little bit closer.</p>
+
+<p>ImageArgs and Response are both messages, that define how to pass and get data around to our server. Response has only a single field called data of type string. So we are getting a string back from our server after we call ImageArgs. It is not the dictionary we wanted, but we can easily encode and decode to string using <a href="https://docs.python.org/3/library/json.html">json lib</a>. Regarding ImageArgs, things get a little bit more complicated: we have a NumpyImage image that is the binary data and a string that defines what model we want. The most tricky part is the NumpyImage part, and that’s how I defined it:</p>
+
+<div class="language-proto highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">message</span> <span class="nc">NumpyImage</span> <span class="p">{</span>
+    <span class="kt">int32</span> <span class="na">height</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="kt">int32</span> <span class="na">width</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+    <span class="kt">int32</span> <span class="na">channels</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>
+    <span class="kt">bytes</span> <span class="na">data</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
+    <span class="kt">string</span> <span class="na">dtype</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>We have the height, width, and number of channels as integer types, the numpy dtype stored as a string, and the binary data on data. With all of this, we can almost send and receive numpy images (matrices) at will, we just need 2 things: learn how to access those datatypes in our Python and write some code to help us encode and decode to this format. To solve the first problem we must “compile” our protobuf file that will generate some Python code that we’ll use. Here’s the command:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> grpc_tools.protoc <span class="nt">-I</span><span class="nb">.</span> <span class="nt">--python_out</span><span class="o">=</span>./ <span class="nt">--pyi_out</span><span class="o">=</span>./ <span class="nt">--grpc_python_out</span><span class="o">=</span>./ simple_server.proto
+</code></pre></div></div>
+
+<p>This command will read our protobuf file and generate two new python files: simple_server_pb2.py and simple_server_pb2_grpc.py. I’ll mention them when we use them, but the main point is that they provide interfaces to our protobuf definitions.</p>
+
+<p>And now, on the code to encode and decode our numpy images to the Protobuf messages:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">np_dtype_to_str</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">np</span><span class="p">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">uint8</span><span class="p">)</span>   <span class="p">:</span> <span class="s">'uint8'</span><span class="p">,</span>
+    <span class="n">np</span><span class="p">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span> <span class="p">:</span> <span class="s">'float32'</span><span class="p">,</span>
+    <span class="n">np</span><span class="p">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">)</span> <span class="p">:</span> <span class="s">'float64'</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">str_to_np_dtype</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="n">np_dtype_to_str</span><span class="p">.</span><span class="n">items</span><span class="p">()}</span>
+
+<span class="k">def</span> <span class="nf">numpy_to_proto</span><span class="p">(</span><span class="n">mat</span><span class="p">):</span>
+    <span class="n">dtype_str</span> <span class="o">=</span> <span class="n">np_dtype_to_str</span><span class="p">[</span><span class="n">mat</span><span class="p">.</span><span class="n">dtype</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">simple_server_pb2</span><span class="p">.</span><span class="n">NumpyImage</span><span class="p">(</span>
+            <span class="n">height</span><span class="o">=</span><span class="n">mat</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">width</span><span class="o">=</span><span class="n">mat</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">channels</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mat</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span><span class="o">==</span><span class="mi">2</span> <span class="k">else</span> <span class="n">mat</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">mat</span><span class="p">.</span><span class="n">tobytes</span><span class="p">(),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype_str</span>
+        <span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">proto_to_numpy</span><span class="p">(</span><span class="n">image</span><span class="p">):</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">str_to_np_dtype</span><span class="p">[</span><span class="n">image</span><span class="p">.</span><span class="n">dtype</span><span class="p">]</span>
+
+    <span class="n">np_image</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">image</span><span class="p">.</span><span class="n">channels</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">height</span><span class="p">,</span> <span class="n">image</span><span class="p">.</span><span class="n">width</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">height</span><span class="p">,</span> <span class="n">image</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">image</span><span class="p">.</span><span class="n">channels</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np_image</span><span class="p">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>It is a quite straightforward code, with two different functions: one to encode a numpy image to a protobuf message, and another to do the opposite. I’ve hardcoded the supported dtypes on <em>np_dtype_to_str</em>, but it is trivial to expand to other ones. You may notice that we are using <em>simple_server_pb2</em> here, and that’s one of the automatically generated Python codes that I’ve mentioned. Ok, finally we have defined our interface and created our protobuf accordingly, we are just missing the most important part: the server! And here we have it:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SimpleServer</span><span class="p">(</span><span class="n">simple_server_pb2_grpc</span><span class="p">.</span><span class="n">SimpleServer</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">models</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">RunImage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="n">model_name</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="n">model</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">proto_to_numpy</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">image</span><span class="p">)</span>
+        <span class="c1"># results = self.models[model_name).run(image)
+</span>        <span class="n">results</span> <span class="o">=</span> <span class="p">{</span><span class="s">'score'</span><span class="p">:</span> <span class="mf">42.0</span><span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">simple_server_pb2</span><span class="p">.</span><span class="n">Response</span><span class="p">(</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">serve</span><span class="p">():</span>
+    <span class="n">server</span> <span class="o">=</span> <span class="n">grpc</span><span class="p">.</span><span class="n">server</span><span class="p">(</span>
+        <span class="n">futures</span><span class="p">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">8</span><span class="p">))</span>
+    <span class="n">route_servicer</span> <span class="o">=</span> <span class="n">SimpleServer</span><span class="p">()</span>
+    <span class="n">server_pb2_grpc</span><span class="p">.</span><span class="n">add_SimpleServerServicer_to_server</span><span class="p">(</span>
+        <span class="n">route_servicer</span><span class="p">,</span> <span class="n">server</span><span class="p">)</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">add_insecure_port</span><span class="p">(</span><span class="s">'[::]:50051'</span><span class="p">)</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">wait_for_termination</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">'__main__'</span><span class="p">:</span>
+    <span class="n">serve</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Ok, now we have finally a server running! But first, let’s look at this code and see how it is done. First, we defined a class called SimpleServer that inherits another SimpleServer from <em>simple_server_pb2_grpc</em>, the other one of those automatically generated codes from protobuf. It provides all the nitty gritty stuff to create a gRPC service, and we just need to define our RPC routes as methods. In our case, that is <em>RunImage</em>, which gets an ImageArgs message, decodes our image back to numpy with <em>proto_to_numpy</em>, and gets the desired model from <em>request.model</em>, calls it and return a <em>Response</em> message. You may notice that we are faking running a model and returning a fixed response. This is the subject of our next Section.</p>
+
+<p>With this SimpleServer in hand, we just need to set up a gRPC server and run it. There is not much going on there, we are basically creating a server with max_worker threads, adding our SimpleServer service to this server, defining a port to run it, and starting it. You can check out this <a href="https://grpc.io/docs/languages/python/basics/">official tutorial</a> to get some more insights, but we’ll get back to those in future sections.</p>
+
+<h2 id="adding-models">Adding Models</h2>
+
+<p>Ok, we have a model server that it is doing “everything”, except run models. Let’s tackle that. Recording one of our goals: it must be easy to add new models, even if they contain lots of Python code. I believe that one of the easiest things would be to create a defined interface that each model must comply with, and our model server loads all of them. For instance, we can have this base interface as the following:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ModelInterface</span><span class="p">(</span><span class="n">abc</span><span class="p">.</span><span class="n">ABC</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">get_input_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s">""" Returns numpy shape """</span>
+        <span class="k">return</span> <span class="bp">None</span>
+
+    <span class="o">@</span><span class="n">abc</span><span class="p">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="s">""" Returns a response dict """</span>
+
+    <span class="k">def</span> <span class="nf">run_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="s">""" Same interface as run, however, the images batch is encoded on
+            a single numpy image. If the model does not provide a batch option
+            just call it once for every input data.
+        """</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>And our model code would be something like this:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">ModelInterface</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s">""" Here you may load an instance of your model """</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">model</span> <span class="o">=</span> <span class="s">'load my model here'</span>
+
+    <span class="k">def</span> <span class="nf">get_input_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s">""" Returns just like numpy shape """</span>
+        <span class="k">return</span> <span class="p">(</span><span class="mi">1080</span><span class="p">,</span> <span class="mi">1920</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="s">'object1'</span><span class="p">,</span><span class="mf">0.3</span><span class="p">),(</span><span class="s">'object2'</span><span class="p">,</span><span class="mf">0.5</span><span class="p">)]</span>
+</code></pre></div></div>
+
+<p>The idea is to inherent <strong>ModelInterface</strong>, load our model on <strong>__init__</strong>, and define, at least, the method <strong>run</strong>. Since all of this is just plain Python, we can do everything we want within run, which should make it quite simple to add here. For example, I’ve already used [MTCNN][https://github.com/davidsandberg/facenet/tree/master/src/align] which has quite a lot of Python code to deal with 3 different Neural Networks used in a cascade fashion, and it was straightforward to add it here.</p>
+
+<p>Now the only problem left is to make our server find those models. I’m using a simple solution, consisting of creating a new folder within <strong>models/</strong> with the name of your model, and inside it, you will have an <strong>__init__.py</strong> with this class Model that implements the run method, and you can put whatever extra necessary code in there. Inside our server we can check all the available models like this:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">all_models</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">listdir</span><span class="p">(</span><span class="s">'models/'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The last piece of the puzzle is to actually import and instantiate those models to a usable Python object. You can do this with <a href="https://docs.python.org/3/library/importlib.html">https://docs.python.org/3/library/importlib.html</a>, which enables us to import a module whose path is decided at runtime. In the end, we can have something like this on our server:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">os</span><span class="p">.</span><span class="n">listdir</span><span class="p">(</span><span class="s">'models/'</span><span class="p">):</span>
+    <span class="n">model_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s">'models.</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s">'</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="nb">locals</span><span class="p">(),</span> <span class="p">[</span><span class="s">'object'</span><span class="p">])</span>
+    <span class="n">importlib</span><span class="p">.</span><span class="nb">reload</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+    <span class="bp">self</span><span class="p">.</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">)</span> <span class="o">=</span> <span class="n">module</span><span class="p">.</span><span class="n">Model</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>With this code, we are instantiating all of our models and putting them into a dict, with its name as key. So, we can update our server code to be like this:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SimpleServer</span><span class="p">(</span><span class="n">simple_server_pb2_grpc</span><span class="p">.</span><span class="n">SimpleServer</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">os</span><span class="p">.</span><span class="n">listdir</span><span class="p">(</span><span class="s">'models/'</span><span class="p">):</span>
+            <span class="n">model_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s">'models.</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s">'</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="nb">locals</span><span class="p">(),</span> <span class="p">[</span><span class="s">'object'</span><span class="p">])</span>
+            <span class="n">importlib</span><span class="p">.</span><span class="nb">reload</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+            <span class="bp">self</span><span class="p">.</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">)</span> <span class="o">=</span> <span class="n">module</span><span class="p">.</span><span class="n">Model</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">RunImage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="n">model_name</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="n">model</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">proto_to_numpy</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">image</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">models</span><span class="p">[</span><span class="n">model_name</span><span class="p">).</span><span class="n">run</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">simple_server_pb2</span><span class="p">.</span><span class="n">Response</span><span class="p">(</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">serve</span><span class="p">():</span>
+    <span class="n">server</span> <span class="o">=</span> <span class="n">grpc</span><span class="p">.</span><span class="n">server</span><span class="p">(</span>
+        <span class="n">futures</span><span class="p">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">8</span><span class="p">))</span>
+    <span class="n">route_servicer</span> <span class="o">=</span> <span class="n">SimpleServer</span><span class="p">()</span>
+    <span class="n">server_pb2_grpc</span><span class="p">.</span><span class="n">add_SimpleServerServicer_to_server</span><span class="p">(</span>
+        <span class="n">route_servicer</span><span class="p">,</span> <span class="n">server</span><span class="p">)</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">add_insecure_port</span><span class="p">(</span><span class="s">'[::]:50051'</span><span class="p">)</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">wait_for_termination</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">'__main__'</span><span class="p">:</span>
+    <span class="n">serve</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Finally, we have a working model server! But wait, how do I call it? I can add as many models as I want, but how do I actually use this in my code? That’s a question for the next Section.</p>
+
+<h2 id="calling-model-server">Calling Model Server</h2>
+
+<p>We have a fully functional model server, but all will be in vain if it is a pain to use. Fortunately, we can make things easier by creating a Model Client, that your code can use. Ideally, we want to establish a client for each model within a single line, and another one to run the model. It really should be that simple, and the complexity should be invisible to the user. A good practice when defining interfaces is to write the final code how you think it should behave, with all (and only) information necessary. This is our end goal:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">model</span> <span class="o">=</span> <span class="n">ModelClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s">'example_image'</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">'localhost'</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">50000</span><span class="p">)</span>
+<span class="n">res</span> <span class="o">=</span> <span class="n">mode</span><span class="p">.</span><span class="n">run_image</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>I’ve mentioned hiding the complexity but really there is not much to it. Mostly is just making sure that we managed to connect to our server and some boilerplate code to convert data back and forward. Let’s look at what it looks like:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ModelClient</span><span class="p">(</span><span class="n">abc</span><span class="p">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ip</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">str</span><span class="o">=</span><span class="s">'50000'</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span><span class="o">=</span><span class="mi">60</span><span class="o">*</span><span class="mi">5</span><span class="p">):</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">channel</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">stub</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="bp">self</span><span class="p">.</span><span class="n">_connect</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_connect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ip</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">channel</span> <span class="o">=</span> <span class="n">grpc</span><span class="p">.</span><span class="n">insecure_channel</span><span class="p">(</span><span class="sa">f</span><span class="s">'</span><span class="si">{</span><span class="n">ip</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s">'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">stub</span> <span class="o">=</span> <span class="n">server_pb2_grpc</span><span class="p">.</span><span class="n">ServerStub</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+
+        <span class="n">begin</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="p">.</span><span class="n">size</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span> <span class="c1"># keep trying to connect until timeout
+</span>            <span class="k">try</span><span class="p">:</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">stub</span><span class="p">.</span><span class="n">GetInputSize</span><span class="p">(</span>
+                    <span class="n">server_pb2</span><span class="p">.</span><span class="n">StringArg</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="p">.</span><span class="n">model</span><span class="p">))</span>
+                <span class="bp">self</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="p">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">grpc</span><span class="p">.</span><span class="n">_channel</span><span class="p">.</span><span class="n">_InactiveRpcError</span><span class="p">:</span>
+                <span class="n">time</span><span class="p">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">time</span><span class="p">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">begin</span> <span class="o">&gt;</span> <span class="n">timeout</span> <span class="ow">and</span> <span class="bp">self</span><span class="p">.</span><span class="n">size</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ConnectionTimeout</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_image_arg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">array</span><span class="p">):</span>
+        <span class="n">image_proto</span> <span class="o">=</span> <span class="n">utils</span><span class="p">.</span><span class="n">numpy_to_proto</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">server_pb2</span><span class="p">.</span><span class="n">ImageArgs</span><span class="p">(</span>
+                <span class="n">image</span><span class="o">=</span><span class="n">image_proto</span><span class="p">,</span>
+                <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="p">.</span><span class="n">model</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">run_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">array</span><span class="p">):</span>
+        <span class="s">"""Runs an image into the given model."""</span>
+        <span class="k">if</span> <span class="n">image</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="nb">min</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s">'error'</span><span class="p">:</span> <span class="s">'Bad image'</span><span class="p">}</span>
+        <span class="n">run_arg</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">_get_image_arg</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">stub</span><span class="p">.</span><span class="n">RunImage</span><span class="p">(</span><span class="n">run_arg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">json</span><span class="p">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="p">.</span><span class="n">data</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>That’s a lot of code, so let’s start at the beginning. Our <strong>ModelClient</strong> takes as a parameter the model name (defined by its folder name), the ip and port of the server, and a connection timeout. On <strong>__init__</strong> we just call <strong>_connect</strong> which creates a channel and a stub to the server. The idea here is to have a single channel and stub per model that we always keep open, so on every new model call we don’t have to deal with all the handshaking stuff.</p>
+
+<p>Notice that on <strong>_connect</strong> we keep trying to call GetInputShape RPC in order to see if our model server is on and responding. It is quite common to launch the model server at the same time as the application, and the model server may take longer to be up and running, so it is good to have a timeout to keep trying for a little bit. After we get our model input shape we are done and ready.</p>
+
+<p>To use our client we are going to call the <strong>run_image</strong> method, which takes an image and returns a dict. We are using a helper method called <strong>_get_image_arg</strong> to format our ImageArgs protobuf message, and calling our server through our stub. Finally, we are getting the results from .data, which is a string, and converting it back to a dict with json.loads.</p>
+
+<p>And that’s it, quite easy for our end user. Notice that despite ModelClient hiding most of the complexities, it is still quite in reach for any user to debug its code and make changes as they see fit. Talking about changes… what about performance?</p>
+
+<h2 id="multiprocessing-server">Multiprocessing Server</h2>
+
+<p>Yeah, performance is key, and a simple and easy to use model server is quite limited if we can’t scale vertically on this day and age of multiple GPUs and many cores CPUs. This is super simple on other servers, like <a href="https://gunicorn.org/">gunicorn</a>, but things are more barebones with gRPC. We have the <strong>max_workers</strong> argument when creating a server, but those workers are threads, and in python, they do not execute parallel code. They are great when there are many stalls due to IO, for example, but they don’t help us using our several CPU cores for max performance.</p>
+
+<p>Reading gRPC’s own <a href="https://github.com/grpc/grpc/tree/master/examples/python/multiprocessing">multiprocessing example</a>, we have to do some tricks:</p>
+
+<ol>
+  <li>Fork our server code at the right time to create multiple processes</li>
+  <li>Create a connection with the option so_reuseport. This makes it possible for all of our forks to share the same port, and the Unix kernel will be responsible for doing the load balancing</li>
+  <li>This kernel load balancing doesn’t work if we want to keep our connection open to the server, since it will always be calling the same exact worker. We have to do load balancing manually</li>
+</ol>
+
+<p>First, let’s create those several process parallel workers. We can do this by changing our server code a little bit:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">_run_server</span><span class="p">(</span><span class="n">bind_address</span><span class="p">):</span>
+    <span class="s">"""Starts a server in a subprocess."""</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="p">((</span><span class="s">'grpc.so_reuseport'</span><span class="p">,</span> <span class="mi">1</span><span class="p">),)</span>
+    <span class="n">server</span> <span class="o">=</span> <span class="n">grpc</span><span class="p">.</span><span class="n">server</span><span class="p">(</span>
+        <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">8</span><span class="p">,),</span>
+        <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+    <span class="n">server_pb2_grpc</span><span class="p">.</span><span class="n">add_ServerServicer_to_server</span><span class="p">(</span><span class="n">ServerServicer</span><span class="p">(),</span> <span class="n">server</span><span class="p">)</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">add_insecure_port</span><span class="p">(</span><span class="n">bind_address</span><span class="p">)</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">server</span><span class="p">.</span><span class="n">wait_for_termination</span><span class="p">()</span>
+
+<span class="o">@</span><span class="n">contextlib</span><span class="p">.</span><span class="n">contextmanager</span>
+<span class="k">def</span> <span class="nf">_reserve_port</span><span class="p">(</span><span class="n">port_number</span><span class="p">):</span>
+    <span class="s">"""Find and reserve a port for all subprocesses to use."""</span>
+    <span class="n">sock</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="n">AF_INET6</span><span class="p">,</span> <span class="n">socket</span><span class="p">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+    <span class="n">sock</span><span class="p">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="n">SOL_SOCKET</span><span class="p">,</span> <span class="n">socket</span><span class="p">.</span><span class="n">SO_REUSEPORT</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">sock</span><span class="p">.</span><span class="n">bind</span><span class="p">((</span><span class="s">''</span><span class="p">,</span> <span class="n">port_number</span><span class="p">))</span>
+    <span class="k">yield</span> <span class="n">sock</span><span class="p">.</span><span class="n">getsockname</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">_reserve_port</span><span class="p">(</span><span class="n">PORT_NUMBER</span><span class="p">)</span> <span class="k">as</span> <span class="n">port</span><span class="p">:</span>
+        <span class="n">bind_address</span> <span class="o">=</span> <span class="sa">f</span><span class="s">'[::]:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s">'</span>
+        <span class="k">with</span> <span class="n">Pool</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="n">NUM_PARALLEL_WORKERS</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="n">pool</span><span class="p">.</span><span class="n">starmap</span><span class="p">(</span><span class="n">_run_server</span><span class="p">,</span> <span class="p">[(</span><span class="n">bind_address</span><span class="p">,)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">NUM_PARALLEL_WORKERS</span><span class="p">)])</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">'__main__'</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Quite a little bit more code, so let’s dig in. First, we are calling <strong>_reserve_port</strong> with our port number. This function uses the <a href="https://docs.python.org/3/library/socket.html">socket</a> library to bind to our desired port and set the SO_REUSEPORT flag so that we can fork our server and share the same port. Then we are using <a href="https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool">multiprocessing.Pool</a> with our <strong>_run_server</strong> function that actually runs the server. This code is very similar to the old one, but now we are passing grpc.so_reuseport option to our grpc.server. That’s it, we now have a gRPC server that is running on <strong>NUM_PARALLEL_WORKERS</strong> workers in a truly parallel fashion.</p>
+
+<p>The final piece of the puzzle here is the load balancer part. As previously mentioned, with this multiprocessing approach, it is up to the Unix kernel to distribute incoming connections to all available workers, however, this is a non-stopper for our use case. It is way too expensive to open and close a new connection for every model call. How can we solve this?</p>
+
+<p>Well, the simplest but still pretty good solution that I’ve found is to implement a route on a server that will return the number of parallel workers that it has and the current worker PID (process ID). On the client side, I’ll keep opening several connections until I’ve established at least one on each server, so the client can freely choose where to send. This means that all the load balancing is going to be on the client side… Couldn’t we do this on the server side for maximum performance?</p>
+
+<p>We could, but it requires a third piece on our puzzle, that will receive all the client’s requests and call the appropriate worker. The good thing is that this middleware sees all the clients and how each server worker is operating, so it has all the information to make the best decisions. However, this solution has two major drawbacks: adds another cost of transferring data, we’ll have client-&gt;middleware-&gt;server instead of client-&gt;server, and adds another layer of complexity. Those reasons are enough for me to choose client-side load balancing, and for my use, it is good enough.</p>
+
+<p>There are many options to do client-side load balancing, but let’s start with the simplest: Round Robing. Basically, for a set of N workers, first, we’ll call Worker 1, then Worker 2, and thereafter, always make sure that we are spreading the load across all workers within time. That is how I implemented it, took only one line of code and it is working great! But this is an area where we could definitely improve: choose randomly the next worker so that we are less likely to have multiple clients in sync and stressing the same workers in the same order, or perhaps get some worker usage response attached to each RPC so we could do some more clever thinking before choosing. But for now, it is good enough.</p>
+
+<h2 id="final-version-and-next-steps">Final Version and Next Steps</h2>
+
+<p>Our final code is a little bit more feature complete: it has unit tests, builds a Docker image that makes it easy to use with Kubernetes for scaling it horizontally, and more interface options and error checks. You can check <a href="https://github.com/gfickel/tiny_model_server">here</a>.</p>
+
+<p>But there are many things missing, including but not limited to:</p>
+<ul>
+  <li>Route to process an image and return an image. Useful for image segmentation, optical flow (returning a HxWx2 np.float32 image, most likely), and other applications. I already added <em>ImageResponse</em> as a message on server.proto, I just need to implement a new route.</li>
+  <li>Better client-side load balancing as we mentioned.</li>
+  <li>Some Kubernetes configs for easy horizontal scaling.</li>
+  <li>Add some configurations to environment variables, such as port number and number of parallel workers. They can be easily when running the Docker images.</li>
+  <li>Add Locust load tests.</li>
+  <li>Add support to ssl_server_credentials</li>
+</ul>
+
+<p>The good thing about being so small is that those things are somewhat simple to implement. And by simple I mean that there is not a lot of moving pieces here to keep track of, and they could be accomplished with a few lines of code.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>That was a journey, but we managed to have a fully working Model Server with only 483 total lines of Python code! And that is including comments and empty lines (although I’m excluding the unit tests and example models). And if we look at our requirements.txt we have only gRPC related packages, numpy and Pillow to deal with images, and pytest for our testing purposes. That seems like a reasonable list.</p>
+
+<p>However, I expect that the main takeaway point here is not a tutorial on “How to Create an Awesome Model Server with only 400 lines of code!!!!”, but to let us explore new avenues, learn more about surrounding topics, and in the end be a better programmer. This experience definitely changed the way I see and judge other model servers for my projects, both for “good” and “bad”. The “bad” is that I know how simple things <em>can</em> be, and sometimes drives me nuts having to deal with dependencies conflicts and tons of documentation just to add my model and start testing. On the other hand, there are also the “good” parts. I do appreciate even more all the features that may sound trivial but make our lives so much easier and can be a pain to implement.</p>
+
+<p>Making better wheels is definitely hard, but improving myself in the process is definitely a nice byproduct. And sometimes we don’t need the best high-tech wheel, just a simple one that is just perfect for your needs.</p>
+
+  </div><a class="u-url" href="/jekyll/update/2024/03/23/creating-a-model-server-and-making-better-wheels.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="http://localhost:4000/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>A Blog mostly geared toward Machine Learning and high performance code.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
+
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
