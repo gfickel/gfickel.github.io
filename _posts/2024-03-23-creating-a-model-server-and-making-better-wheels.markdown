@@ -342,7 +342,7 @@ But there are many things missing, including but not limited to:
 - Some Kubernetes configs for easy horizontal scaling.
 - Add some configurations to environment variables, such as port number and number of parallel workers. They can be easily when running the Docker images.
 - Add Locust load tests.
-- Add support to ssl_server_credentials
+- Add support to ssl_server_credentials.
 
 The good thing about being so small is that those things are somewhat simple to implement. And by simple I mean that there is not a lot of moving pieces here to keep track of, and they could be accomplished with a few lines of code.
 
