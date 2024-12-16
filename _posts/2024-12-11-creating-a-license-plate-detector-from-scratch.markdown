@@ -7,12 +7,6 @@ categories: jekyll update
 
 ![https://www.flickr.com/photos/strawbryb/7266786206](/assets/apple_pie.jpg)
 
-
-
-
-
-
-
 The idea of creating something from scratch is both intimidating and exciting. It is tough to stare at a blank screen (usually a programming IDE), waiting for us to type the first characters of a big new project. But this is also a moment full of new possibilities, experiments, and learning. And as Carl Sagan once said, "if you wish to make an apple pie from scratch you must first invent the universe". With that cosmic perspective in mind, let's set our expectations straight on what we mean by "from scratch" and what we want to achieve:
 
 - **Any Deep Learning framework allowed**: pytorch, JAX, keras, etc.
@@ -20,7 +14,7 @@ The idea of creating something from scratch is both intimidating and exciting. I
 - **Should run fast on CPU**: the GPU world is great, but I want something that runs somewhat fast on CPU. I'll say that 100ms on my low/midrange notebook is good enough (AMD Ryzen 7 5700U).
 - **Simple solution**: ideally I would want a single end-to-end network, i.e., pass an image and receive the list of plates with their text, but this might be too challenging...
 
-So with that in mind, what is a License Plate Recognition (aka LPR)? It's just a system that both detects and reads the license plates from an image/video. It is common on some private parking lots, monitoring traffic, etc.
+So with that in mind, what is a License Plate Recognition (aka LPR)? It's just a system that both detects and reads the license plates from an image/video. It is commonly used in private parking lots, traffic monitoring systems, and similar applications.
 
 ## Solution Pipeline
 
@@ -51,7 +45,7 @@ Fortunately, SCRFD already has an open-source implementation available, which pr
 
 This was a big no-go for this project, so I decided to directly get the code that I need and drop this requirement altogether. It took a bit of work, changing some interfaces and simplifying some details, but I've managed to do it. And in the process, I've learned a lot about how OpenMMDetection works, which is a great thing.
 
-Also, I decided to use the [EEfficientDet](https://arxiv.org/abs/1911.09070) BiFPN (bi-directional feature pyramid network) for the neck. It proved itself as a very strong neck, and I think that being bi-directional is a really good strategy to make the best use of our limited backbone features. And I'm calling them limited only because I'll use the smallest backbone that I can find, and that was [MobilieNetV4](https://arxiv.org/abs/2404.10518). In the end it is a little bit different from SCRFD, but the main gist of it remains, only updating some parts.
+Also, I decided to use the [EfficientDet](https://arxiv.org/abs/1911.09070) BiFPN (bi-directional feature pyramid network) for the neck. It proved itself as a very strong neck, and I think that being bi-directional is a really good strategy to make the best use of our limited backbone features. And I'm calling them limited only because I'll use the smallest backbone that I can find, and that was [MobileNetV4](https://arxiv.org/abs/2404.10518). In the end it is a little bit different from SCRFD, but the main gist of it remains, only updating some parts.
 
 For MaskOCR it was a bit trickier: there was no implementation available. This is not that big of a deal, though, since I was able to get the more complicated stuff from [ViT Pytorch](https://github.com/lucidrains/vit-pytorch/), and only had to piece everything together and set up the training process. It took a bit of work but it paid off.
 
@@ -79,49 +73,43 @@ Training MaskOCR was a little bit more complicated. Here are some key parameters
 - **num encoder layers**: I tried several combinations, but every time I used less than 8 the accuracy quickly dropped, and higher numbers stayed the same or increased overfitting. I ended up using 8.
 - **num decoder layers**: also tested several values, and 6 was the best one.
 - **dropout**: I added dropout both on encoder and decoder phases with a value of 0.25, all in the name of avoiding overfitting.
-- **num encoder heads**: either 8 or 12 were giving me good results but 12 was just a tid bit better.
+- **num encoder heads**: either 8 or 12 were giving me good results but 12 was just a tad bit better.
 - **embed_dim**: great influence on the results. 624 was the sweet spot for me.
 
 This network also had a tendency to overfit. I had to write my custom augmentation code and added a parameter to control its strength. Even with 300K images, heavy augmentations were fundamental in getting good results.
 
-
 ## Results
 
-We got an accuracy of 93% accuracy on ccpd_challenge, the hardest set and usually reserved for testing. Notice that there are some annotation problems, mostly invalid plates and humanly unreadable plates. We can argue that "unreadable" is a little bit subjective, and that the model should be able to outperform humans. However this makes it quite challenging to detect if the mistake came from the network or the annotation. Here is very well behaved example:
+We achieved 93% accuracy on ccpd_challenge, the hardest set and usually reserved for testing. Notice that there are some annotation problems, mostly invalid plates and humanly unreadable plates. We can argue that "unreadable" is somewhat subjective, and that the model should be able to outperform humans. However, this makes it quite challenging to determine if the mistake came from the network or the annotation. Here is a very well-behaved example:
 
 ![https://www.flickr.com/photos/strawbryb/7266786206](/assets/alpr.jpg)
 
-
-And what about the runtime? I've run some tests where run on my personal notebook, with an AMD Ryzen 7 5700U (with a modest TDP of 15W), 12GB RAM, Ubuntu 23.04:
+And what about the runtime? I've run some tests on my personal notebook, with an AMD Ryzen 7 5700U (with a modest TDP of 15W), 12GB RAM, Ubuntu 23.04:
 
 - **Detection**: ~80ms
 - **OCR (per plate)**: ~48ms
 
-
-We've blown our initial budget of 100ms by some 28ms, which is a lot... We definetly can iterate further on both networks, testing the impact of some hyperparameters on the final runtime/accuracy and find some better ones. However I'm running low on time, and I'm happy where we are.
-
+We've exceeded our initial budget of 100ms by 28ms, which is significant. We definitely can iterate further on both networks, testing the impact of some hyperparameters on the final runtime/accuracy and find some better ones. However, I'm running low on time, and I'm happy with where we are.
 
 ## Missing Steps for Deploy
 
-There is a world of difference on ideal research conditions and actually deploying a Machine Learning model. It is important to define this at the very start of the project and update our priorities and goals accordingly. Here are some questions that we should always ask:
+There is a world of difference between ideal research conditions and actually deploying a Machine Learning model. It is important to define this at the very start of the project and update our priorities and goals accordingly. Here are some questions that we should always ask:
 
 - Is it going to work on pictures or video?
 - Maximum latency? 100ms, 1s, 10s?
 - Will it run on Cloud? If so, on CPU, GPU, TPU?
-- Will it run on smartphones? Android, iOS? Minimum SDK and phone specs.
+- Will it run on smartphones? Android, iOS? Minimum SDK and phone specs?
 - What metrics should we use? FAR/FRR, AuC? And what is our goal, remembering that there is no perfect system.
 
-Those questions will get us a set of constraints that we must follow: maximum latency and where should we measure it (CPU, GPU, smartphone), model size (really important for smartphones), architecture design (perhaps we can use some Android/iOS AI building blocks), etc.
-
+These questions will give us a set of constraints that we must follow: maximum latency and where should we measure it (CPU, GPU, smartphone), model size (really important for smartphones), architecture design (perhaps we can use some Android/iOS AI building blocks), etc.
 
 ## Some Tips
 
 It is a very fun and challenging process to try and make something as big as an LPR, but there are many pitfalls down the bumpy road. Here are some key tips for a much faster and productive process:
 
-- **Good Logging**: your training within a platform that is easy to compare multiple train sessions. I'm using [Weights and Bias](https://wandb.ai/) but you should use wathever you like.
-- **FAST Iteration**: quick iteration time doesn't mean only making a code change and running/debugging, but also fast trains. Ideally a full trained model should take no longer than an hour. Usually you should a smaller train dataset and some smarter way to train, such as [fit_one_cycle](https://docs.fast.ai/callback.schedule.html#learner.fit_one_cycle) and [lr_find](https://docs.fast.ai/callback.schedule.html#learner.lr_find). This way you can quickly test several ideas before sticking to a few and doing a full, lengthy train.
-- **Good Debug Experience**: either through notebooks or through an IDE, my prefered way. Programming is hard, and tracking all the tensors shapes and their modifications is usually quite tricky, so having an easy way to debug your code along the way can make your life so much easier.
-- **LLMs Are Quite Good**: I'm slightly embarassed to admit that I'm a late LLM adopter, but I'm finding they are really helpful. However, they make a lot of mistakes, so you should never blindly trust them, but they are awesome in several areas such as writing boiler plate code, serving as an interative documentation for many popular libs, and explaining some concepts with code and plots.
-
+- **Good Logging**: use a platform that makes it easy to compare multiple training sessions. I'm using [Weights and Bias](https://wandb.ai/) but you should use whatever you like.
+- **FAST Iteration**: quick iteration time doesn't mean only making a code change and running/debugging, but also fast trains. Ideally a full trained model should take no longer than an hour. Usually you should use a smaller train dataset and some smarter way to train, such as [fit_one_cycle](https://docs.fast.ai/callback.schedule.html#learner.fit_one_cycle) and [lr_find](https://docs.fast.ai/callback.schedule.html#learner.lr_find). This way you can quickly test several ideas before sticking to a few and doing a full, lengthy train.
+- **Good Debug Experience**: either through notebooks or through an IDE, my preferred way. Programming is hard, and tracking all the tensors shapes and their modifications is usually quite tricky, so having an easy way to debug your code along the way can make your life so much easier.
+- **LLMs Are Quite Good**: I'm slightly embarrassed to admit that I'm a late LLM adopter, but I'm finding they are really helpful. However, they make a lot of mistakes, so you should never blindly trust them, but they are awesome in several areas such as writing boilerplate code, serving as an interactive documentation for many popular libs, and explaining some concepts with code and plots.
 
 And if my first image left you wanting an apple pie, look no further than the cooking master J. Kenji López-Alt help [here](https://www.seriouseats.com/gooey-deep-dish-apple-pie-recipe).
